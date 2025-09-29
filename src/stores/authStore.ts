@@ -3,9 +3,9 @@ import type { Session } from "@supabase/supabase-js";
 
 import { SupabaseAPI } from "../utils/service/api";
 
-interface IUserProfile {
+export interface IUserProfile {
   id: string;
-  email: string;
+  email: string | null | undefined;
 }
 
 interface IUserStore {
@@ -18,6 +18,7 @@ interface IUserStore {
   signOut: () => Promise<void>;
   fetchUser: () => Promise<void>;
   resetPassword: (email: string, redirectTo?: string) => Promise<void>;
+  setUser: (user: IUserProfile | null) => void;
 }
 
 export const useUserStore = create<IUserStore>((set) => ({
@@ -92,6 +93,10 @@ export const useUserStore = create<IUserStore>((set) => ({
     } finally {
       set({ loading: false });
     }
+  },
+
+  setUser(user) {
+    set({ user });
   },
 
   resetPassword: async (email, redirectTo) => {
