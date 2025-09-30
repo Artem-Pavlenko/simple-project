@@ -13,4 +13,7 @@ export const StyledLink = styled(Link)``;
 export const ForgotPassword = styled.div`
   margin-top: 12px;
   cursor: pointer;
+
+  &:hover {
+  }
 `;

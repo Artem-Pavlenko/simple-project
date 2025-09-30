@@ -23,10 +23,6 @@ export const Input = styled.input`
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 14px;
-
-  &::placeholder {
-    color: #ddd;
-  }
 `;
 
 export const Button = styled.button`

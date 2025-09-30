@@ -1,32 +1,14 @@
-import { useEffect } from "react";
-
-import { supabase } from "./supabaseClient";
-import { useUserStore } from "./stores/authStore";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { routers } from "./utils/routes";
-import "./index.css";
+
 import { RoutePathNames } from "./utils/constants";
+import { useUserStore } from "./stores/authStore";
+import { routers } from "./utils/routes";
+import { useAuth } from "./utils/hooks";
+import "./index.css";
 
 function App() {
-  const { setUser, user } = useUserStore();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session && data.session.user) {
-        setUser({ id: data.session.user.id, email: data.session.user.email });
-      }
-    });
-
-    const subData = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({ id: session.user.id, email: session?.user.email });
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => subData?.data?.subscription?.unsubscribe();
-  }, []);
+  useAuth();
+  const { user } = useUserStore();
 
   return (
     <div className="page-wrapper">

@@ -6,3 +6,5 @@ export * from "./AuthWrapper";
 export * from "./PageWrapper";
 export * from "./SideBar";
 export * from "./GoBack";
+export * from "./ForgotPasswordForm";
+export * from "./ResetPasswordForm";

@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { SignInForm } from "../../components";
+import { useEffect, useState } from "react";
+import { ForgotPasswordForm, SignInForm } from "../../components";
 import { useUserStore } from "../../stores/authStore";
 import { RoutePathNames } from "../../utils/constants";
 import * as S from "./styles";
@@ -9,6 +9,8 @@ export const SignInPage = () => {
   const { user } = useUserStore();
   const navigate = useNavigate();
 
+  const [isForgotPass, setIsForgotPass] = useState(false);
+
   useEffect(() => {
     if (user?.id) {
       navigate(RoutePathNames.Home);
@@ -17,8 +19,16 @@ export const SignInPage = () => {
 
   return (
     <S.Wrapper>
-      <SignInForm />
-      <S.StyledLink to={RoutePathNames.SignUp}>sign up ?</S.StyledLink>
+      {isForgotPass ? (
+        <ForgotPasswordForm onGoBack={() => setIsForgotPass(false)} />
+      ) : (
+        <SignInForm />
+      )}
+
+      <S.StyledLink to={RoutePathNames.SignUp}>Go to Sign Up?</S.StyledLink>
+      <S.ForgotPassword onClick={() => setIsForgotPass(true)}>
+        Forgot Password ?
+      </S.ForgotPassword>
     </S.Wrapper>
   );
 };
