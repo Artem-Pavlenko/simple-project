@@ -20,11 +20,10 @@ export const LOG = (
 
   const color =
     level in COLORS ? COLORS[level as keyof typeof COLORS] : "#FFFFFF";
-  const time = new Date().toLocaleTimeString();
 
   console.log("%c────────────────────────────────────────", "color: gray;");
   console.log(
-    `%c ${description} | ${level} | ${time} `,
+    `%c ${description} `,
     `color: ${color}; font-weight: bold; font-size: 13px; background: ${COLORS.BG}; padding: 2px 6px; border-radius: 4px;`,
     logObj
   );

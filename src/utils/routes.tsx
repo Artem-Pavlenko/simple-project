@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 import { RoutePathNames } from "./constants";
-import { SignInPage, SignUpPage, PanelPage } from "../pages";
+import { SignInPage, SignUpPage, PanelPage, EditAdventure } from "../pages";
 import { AuthWrapper } from "../components";
 
 interface IRouter {
@@ -16,6 +16,14 @@ export const routers: IRouter[] = [
   {
     path: RoutePathNames.SignUp,
     element: <SignUpPage />,
+  },
+  {
+    path: RoutePathNames.EditAdventure,
+    element: (
+      <AuthWrapper>
+        <EditAdventure />
+      </AuthWrapper>
+    ),
   },
   {
     path: RoutePathNames.Home,

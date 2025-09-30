@@ -1,12 +1,27 @@
 import type { FC, PropsWithChildren } from "react";
-import { SideBar } from "..";
-import { Wrapper } from "./styles";
+import { GoBack, SideBar } from "..";
+import { GoBackWrapper, Wrapper } from "./styles";
 
-export const PageWrapper: FC<PropsWithChildren> = ({ children }) => {
-  return (
-    <Wrapper>
+interface IProps extends PropsWithChildren {
+  withSideBar?: boolean;
+  withBackButton?: boolean;
+  goBackText?: string;
+}
+
+export const PageWrapper: FC<IProps> = ({
+  children,
+  goBackText,
+  withSideBar = true,
+  withBackButton = false,
+}) => (
+  <Wrapper withSideBar={withSideBar} withBackButton={withBackButton}>
+    {withSideBar ? (
       <SideBar />
-      {children}
-    </Wrapper>
-  );
-};
+    ) : withBackButton ? (
+      <GoBackWrapper>
+        <GoBack text={goBackText} />
+      </GoBackWrapper>
+    ) : null}
+    {children}
+  </Wrapper>
+);

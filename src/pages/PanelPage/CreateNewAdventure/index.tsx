@@ -1,18 +1,21 @@
 import { useId, type FC } from "react";
-import * as S from "./styles";
+import { useNavigate } from "react-router-dom";
+
 import {
   useAdventureStore,
   type IAdventure,
 } from "../../../stores/adventureStore";
+import { RoutePathNames } from "../../../utils/constants";
+import * as S from "./styles";
 
 interface IProps {
   onGoBack?: () => void;
-  onCreate?: () => void;
 }
 
-export const CreateNewAdventure: FC<IProps> = ({ onGoBack, onCreate }) => {
+export const CreateNewAdventure: FC<IProps> = ({ onGoBack }) => {
   const id = useId();
   const { addAdventure } = useAdventureStore();
+  const navigate = useNavigate();
 
   const onCreateNewAdventure = () => {
     const newAdventure: IAdventure = {
@@ -26,7 +29,7 @@ export const CreateNewAdventure: FC<IProps> = ({ onGoBack, onCreate }) => {
       type: "draft",
     };
     addAdventure(newAdventure);
-    onCreate?.();
+    navigate(RoutePathNames.EditAdventure.replace(":id", id));
   };
 
   return (
