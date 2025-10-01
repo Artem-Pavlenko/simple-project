@@ -1,3 +1,4 @@
+export * from "./Challenge";
 export * from "./PanelPage";
 export * from "./SignIn";
 export * from "./SignUp";

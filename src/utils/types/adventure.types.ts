@@ -58,7 +58,7 @@ export type ChallengeSelectionSettingsType = {
   stopButton: StopButtonType;
 };
 
-export type Adventure = {
+export type AdventureType = {
   id: string;
   title: string;
   description: string;

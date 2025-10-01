@@ -6,7 +6,7 @@ export const Wrapper = styled.div`
   width: 500px;
 `;
 
-export const Title = styled.h1`
+export const Title = styled.h2`
   font-size: 24px;
   font-weight: 600;
   color: #1b2029;

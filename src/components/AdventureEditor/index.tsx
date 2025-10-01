@@ -1,8 +1,9 @@
 import { useState, type FC } from "react";
 
-import * as S from "./styles";
 import type { IAdventure } from "../../stores/adventureStore";
 import { AdventureSettings } from "./AdventureSettings";
+import { Challenges } from "./Challenges";
+import * as S from "./styles";
 
 const tabs = ["General adventure settings", "Hardware mapping", "Challenges"];
 
@@ -27,6 +28,8 @@ export const AdventureEditor: FC<IProps> = ({ adventure }) => {
         ))}
       </S.EditorTabs>
       {selectedTab === 0 && <AdventureSettings adventure={adventure} />}
+      {selectedTab === 1 && <div>Hardware mapping</div>}
+      {selectedTab === 2 && <Challenges />}
     </S.Wrapper>
   );
 };

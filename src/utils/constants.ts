@@ -15,4 +15,5 @@ export const RoutePathNames = {
   DeletedAdventures: "/deleted-adventures",
   EditAdventure: "/edit-adventure/:id",
   ResetPassword: "/reset-password",
+  Challenge: "/challenge/",
 };
