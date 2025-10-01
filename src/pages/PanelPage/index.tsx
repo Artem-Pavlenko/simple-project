@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { AdventureTable, PageWrapper } from "../../components";
+import { AddButton, AdventureTable, PageWrapper } from "../../components";
 import { useAdventureStore } from "../../stores/adventureStore";
 import { useUserStore } from "../../stores/authStore";
 import { SupabaseAPI } from "../../utils/service/api";
@@ -22,9 +22,9 @@ export const PanelPage: React.FC = () => {
       <S.Container>
         <S.Title>Your adventures</S.Title>
 
-        <S.AddNewAdventure onClick={() => setIsCreating(true)}>
-          + New adventure
-        </S.AddNewAdventure>
+        <AddButton onClick={() => setIsCreating(true)} marginBottom={20}>
+          + New Adventure
+        </AddButton>
 
         {isCreating ? (
           <CreateNewAdventure onGoBack={() => setIsCreating(false)} />

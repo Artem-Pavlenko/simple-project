@@ -1,3 +1,4 @@
+export * from "./AddButton";
 export * from "./AdventureEditor";
 export * from "./AdventureTable";
 export * from "./SignUpForm";

@@ -1,4 +1,4 @@
-import { useId, type FC } from "react";
+import { useState, type FC } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -13,23 +13,27 @@ interface IProps {
 }
 
 export const CreateNewAdventure: FC<IProps> = ({ onGoBack }) => {
-  const id = useId();
   const { addAdventure } = useAdventureStore();
   const navigate = useNavigate();
 
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+
   const onCreateNewAdventure = () => {
-    const newAdventure: IAdventure = {
-      title: "New Adventure",
-      description: "This is a new adventure.",
-      tags: [],
-      version: "1.0",
-      id,
-      createdAt: new Date().toISOString(),
-      challenges: [],
-      type: "draft",
-    };
-    addAdventure(newAdventure);
-    navigate(RoutePathNames.EditAdventure.replace(":id", id));
+    if (title) {
+      const newAdventure: IAdventure = {
+        title: title,
+        description: description,
+        tags: [],
+        version: "1.0",
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        challenges: [],
+        type: "draft",
+      };
+      addAdventure(newAdventure);
+      navigate(RoutePathNames.EditAdventure.replace(":id", newAdventure.id));
+    }
   };
 
   return (
@@ -37,10 +41,19 @@ export const CreateNewAdventure: FC<IProps> = ({ onGoBack }) => {
       <S.Title>Create New Adventure</S.Title>
 
       <S.Label>Adventure title</S.Label>
-      <S.Input type="text" placeholder="Enter adventure title" />
+      <S.Input
+        value={title}
+        onChange={(e) => setTitle(e.currentTarget.value)}
+        type="text"
+        placeholder="Enter adventure title"
+      />
 
       <S.Label>Description</S.Label>
-      <S.TextArea placeholder="Enter adventure description" />
+      <S.TextArea
+        value={description}
+        onChange={(e) => setDescription(e.currentTarget.value)}
+        placeholder="Enter adventure description"
+      />
 
       <S.Label>Tags</S.Label>
       <S.Text>+Add tag</S.Text>

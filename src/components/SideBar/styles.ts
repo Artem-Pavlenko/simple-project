@@ -30,6 +30,8 @@ export const NavItem = styled(Link)<NavItemProps>`
   text-decoration: none;
   border-radius: 8px;
   margin-bottom: 8px;
+  width: 100%;
+  transition: all 0.3s ease;
 
   &:hover {
     background: #e6f7e4ff;

@@ -61,22 +61,6 @@ export const Email = styled.div`
   font-weight: 500;
 `;
 
-export const AddNewAdventure = styled.button`
-  margin-top: 20px;
-  padding: 8px 12px;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 18px;
-  cursor: pointer;
-  margin-bottom: 20px;
-  font-weight: 600;
-
-  &:hover {
-    background-color: #1e40af;
-  }
-`;
-
 export const Footer = styled.div`
   margin-top: auto;
   display: flex;
