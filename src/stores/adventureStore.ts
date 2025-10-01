@@ -1,5 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type {
+  ChallengeSelectionSettingsType,
+  InputAliasingType,
+  s3KeyType,
+} from "../utils/types/adventure.types";
+import type { Challenge } from "../utils/types/challenge.types";
 
 export interface IUserProfile {
   id: string;
@@ -12,10 +18,24 @@ export interface IAdventure {
   tags: string[];
   version: string;
   id: string;
-  createdAt?: string;
-  updatedAt?: string;
-  challenges?: string[];
   type: "draft" | "final";
+
+  created_at: string;
+  updated_at: string;
+  input_aliasing: InputAliasingType;
+  assets: {
+    matImage: s3KeyType;
+    audioFiles: [
+      {
+        name: string;
+        s3Key: s3KeyType;
+      }
+    ];
+  };
+  challengeSelectionSettings: ChallengeSelectionSettingsType;
+  challenges: {
+    [key: string]: Challenge;
+  };
 }
 
 interface IAdventureStore {

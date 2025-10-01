@@ -30,21 +30,13 @@ export const AdventureTable: FC<IProps> = ({ data, onDeleteItem }) => {
         {data.map((row) => (
           <tr key={row.id}>
             <Td>{row.title}</Td>
-            <Td>{row.createdAt || "-- --"} </Td>
-            <Td>{row.updatedAt || "-- --"}</Td>
+            <Td>{row.created_at || "-- --"} </Td>
+            <Td>{row.updated_at || "-- --"}</Td>
             <Td>
               {row.version}{" "}
               <Badge $type={row.type as "draft" | "final"}>{row.type}</Badge>
             </Td>
-            <Td>
-              {row.challenges?.length
-                ? row.challenges.map((ch, i) => (
-                    <div key={i}>
-                      <a href="#">{ch}</a>
-                    </div>
-                  ))
-                : "-"}
-            </Td>
+            <Td>{"-- --"}</Td>
             <Td>
               <Actions>
                 <Button

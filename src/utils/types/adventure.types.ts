@@ -41,17 +41,14 @@ export type LedType =
   | "L11"
   | "L12";
 
-export type InputType = ButtonType | PadType;
-
 export type InputAliasingType = {
   [key in InputType]: string;
 };
 
 export type s3KeyType = string;
-
-export type StartButtonType = InputType;
-
+export type InputType = ButtonType | PadType;
 export type StopButtonType = InputType;
+export type StartButtonType = InputType;
 
 export type ChallengeSelectionSettingsType = {
   startButton: StartButtonType;
