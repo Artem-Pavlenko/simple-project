@@ -2,6 +2,7 @@ export * from "./AddButton";
 export * from "./AdventureEditor";
 export * from "./AdventureTable";
 export * from "./AuthWrapper";
+export * from "./ChallengeForm";
 export * from "./CreateForm";
 export * from "./SignUpForm";
 export * from "./SignInForm";

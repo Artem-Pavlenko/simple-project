@@ -25,13 +25,35 @@ export const PanelPage: React.FC = () => {
 
   const onCreateNewAdventure = (title: string, description: string) => {
     if (title) {
+      const challengeId = crypto.randomUUID();
+
       const newAdventure: IAdventure = {
         title: title,
         description: description,
         tags: [],
         version: "1.0",
         id: crypto.randomUUID(),
-        challenges: {},
+        challenges: {
+          [challengeId]: {
+            id: challengeId,
+            nodes: {},
+            startNode: {
+              id: "start",
+              type: "start",
+              x: 0,
+              y: 0,
+              width: 180,
+              height: 80,
+            },
+            endNodes: [],
+            challengeStart: [],
+            title: "New Challenge",
+            description: "",
+            version: "1.0",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        },
         type: "draft",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

@@ -1,11 +1,10 @@
 import { useEffect, type FC } from "react";
-
-import * as S from "./styles";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAdventureStore } from "../../stores/adventureStore";
+
 import { RoutePathNames } from "../../utils/constants";
-import { LOG } from "../../utils";
+import { useAdventureStore } from "../../stores/adventureStore";
 import { AdventureEditor, PageWrapper } from "../../components";
+import * as S from "./styles";
 
 export const EditAdventure: FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -13,8 +12,6 @@ export const EditAdventure: FC = () => {
   const { adventures } = useAdventureStore();
 
   const adventure = adventures.find((adv) => adv.id === id);
-
-  LOG(adventure, "adventure");
 
   useEffect(() => {
     if (!adventure) {

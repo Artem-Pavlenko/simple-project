@@ -1,20 +1,23 @@
 import { useState, type FC } from "react";
 import { useParams } from "react-router-dom";
 
-import { CreateForm, PageWrapper } from "../../components";
+import { ChallengeForm, CreateForm, PageWrapper } from "../../components";
 import * as S from "./styles";
+import { useAdventureStore } from "../../stores/adventureStore";
+import type { ChallengeType } from "../../utils/types/challenge.types";
 
-interface IChallenge {
-  title: string;
-  description: string;
-  id: string;
-}
+type ParamsType = {
+  id?: string;
+  challengeId?: string;
+};
 
 export const ChallengePage: FC = () => {
-  const params = useParams<{ id?: string }>();
+  const params = useParams<ParamsType>();
+  const { adventures, updAdventureChallenge } = useAdventureStore();
 
-  const [isEditMode, setIsEditMode] = useState(!!params.id);
-  const [challenge, setChallenge] = useState<IChallenge | undefined>();
+  const [isEditMode, setIsEditMode] = useState(!!params.challengeId);
+
+  const currentAdventure = adventures.find((adv) => adv.id === params.id);
 
   return (
     <PageWrapper withBackButton withSideBar={false} goBackText="Adventure list">
@@ -26,12 +29,33 @@ export const ChallengePage: FC = () => {
             onCreate={(title, description) => {
               if (title && description) {
                 setIsEditMode(true);
-                setChallenge({ title, description, id: crypto.randomUUID() });
+                const newChallenge: ChallengeType = {
+                  title,
+                  description,
+                  id: crypto.randomUUID(),
+                  challengeStart: [],
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  endNodes: [],
+                  nodes: {},
+                  startNode: {
+                    type: "start",
+                    id: crypto.randomUUID(),
+                    height: 100,
+                    width: 100,
+                    x: 100,
+                    y: 100,
+                  },
+                  version: "1.0",
+                };
+                if (params.id) {
+                  updAdventureChallenge(params.id, newChallenge);
+                }
               }
             }}
           />
         ) : (
-          <>Edit Form</>
+          <ChallengeForm adventure={currentAdventure} />
         )}
       </S.Wrapper>
     </PageWrapper>

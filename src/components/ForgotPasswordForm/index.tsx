@@ -2,7 +2,6 @@ import { useState, type FC } from "react";
 
 import { SupabaseAPI } from "../../utils/service/api";
 import * as S from "./styles";
-import { LOG } from "../../utils";
 
 interface IProps {
   onGoBack: () => void;
@@ -26,7 +25,10 @@ export const ForgotPasswordForm: FC<IProps> = ({ onGoBack }) => {
         email,
         `${window.location.origin}/reset-password`
       );
-      LOG(res, "res");
+      if (res?.error?.message) {
+        setMessage(res.error.message);
+        return;
+      }
       setMessage("Check your email for the password reset link.");
     } catch (error: unknown) {
       console.error("Error resetting password:", error);

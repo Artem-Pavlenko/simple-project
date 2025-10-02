@@ -3,7 +3,7 @@
 import type { InputType } from "./adventure.types";
 import type { IEndNode, IntermediateNode, IStartNode } from "./node.types";
 
-export type Challenge = {
+export type ChallengeType = {
   id: string;
   title: string;
   description: string;

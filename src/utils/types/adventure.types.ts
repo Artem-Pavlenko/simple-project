@@ -1,5 +1,5 @@
 // The Adventure groups all related challenges and defines global settings that apply across them.
-import type { Challenge } from "./challenge.types";
+import type { ChallengeType } from "./challenge.types";
 
 export type ButtonType =
   | "B1"
@@ -55,6 +55,11 @@ export type ChallengeSelectionSettingsType = {
   stopButton: StopButtonType;
 };
 
+export type AudioFileType = {
+  name: string;
+  s3Key: s3KeyType;
+};
+
 export type AdventureType = {
   id: string;
   title: string;
@@ -65,15 +70,10 @@ export type AdventureType = {
   input_aliasing: InputAliasingType;
   assets: {
     matImage: s3KeyType;
-    audioFiles: [
-      {
-        name: string;
-        s3Key: s3KeyType;
-      }
-    ];
+    audioFiles: AudioFileType[];
   };
   challengeSelectionSettings: ChallengeSelectionSettingsType;
   challenges: {
-    [key: string]: Challenge;
+    [key: string]: ChallengeType;
   };
 };

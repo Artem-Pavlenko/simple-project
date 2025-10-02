@@ -29,7 +29,7 @@ export const AdventureEditor: FC<IProps> = ({ adventure }) => {
       </S.EditorTabs>
       {selectedTab === 0 && <AdventureSettings adventure={adventure} />}
       {selectedTab === 1 && <div>Hardware mapping</div>}
-      {selectedTab === 2 && <Challenges />}
+      {selectedTab === 2 && <Challenges adventure={adventure} />}
     </S.Wrapper>
   );
 };

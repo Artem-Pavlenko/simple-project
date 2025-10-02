@@ -5,7 +5,7 @@ import type {
   InputAliasingType,
   s3KeyType,
 } from "../utils/types/adventure.types";
-import type { Challenge } from "../utils/types/challenge.types";
+import type { ChallengeType } from "../utils/types/challenge.types";
 
 export interface IUserProfile {
   id: string;
@@ -34,13 +34,18 @@ export interface IAdventure {
   };
   challengeSelectionSettings: ChallengeSelectionSettingsType;
   challenges: {
-    [key: string]: Challenge;
+    [key: string]: ChallengeType;
   };
 }
 
 interface IAdventureStore {
   adventures: IAdventure[];
   addAdventure: (adventure: IAdventure) => void;
+  updAdventure: (adventure: IAdventure) => void;
+  updAdventureChallenge: (
+    adventureId: string,
+    challenge: ChallengeType
+  ) => void;
   clearAdventures: () => void;
   setAdventures: (adventures: IAdventure[]) => void;
   deleteAdventure: (id: string) => void;
@@ -62,6 +67,29 @@ export const useAdventureStore = create<IAdventureStore>()(
       deleteAdventure(id) {
         set((state) => ({
           adventures: state.adventures.filter((adv) => adv.id !== id),
+        }));
+      },
+      updAdventure(adventure) {
+        set((state) => ({
+          adventures: state.adventures.map((adv) =>
+            adv.id === adventure.id ? adventure : adv
+          ),
+        }));
+      },
+      updAdventureChallenge(adventureId, challenge) {
+        set((state) => ({
+          adventures: state.adventures.map((adv) => {
+            if (adv.id === adventureId) {
+              return {
+                ...adv,
+                challenges: {
+                  ...adv.challenges,
+                  [challenge.id]: challenge,
+                },
+              };
+            }
+            return adv;
+          }),
         }));
       },
     }),

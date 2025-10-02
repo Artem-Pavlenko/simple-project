@@ -31,12 +31,16 @@ export interface IEndNode extends INode {
   type: INodeTypes["End"];
 }
 
-export type aNode = IStartNode | IEndNode | IntermediateNode;
+export type NodeVariants = IStartNode | IEndNode | IntermediateNode;
 
 export interface TimeOut extends TimerOnce {
   effects: Effect[];
 }
 
+export type EventType = {
+  trigger: Trigger;
+  effects: Effect[];
+};
 export interface IntermediateNode extends INode {
   type: INodeTypes["Node"];
   title: string;
@@ -44,12 +48,7 @@ export interface IntermediateNode extends INode {
   entryEffects: Effect[];
   exitEffects: Effect[];
   timeOut: null | TimeOut;
-  events: [
-    {
-      trigger: Trigger;
-      effects: Effect[];
-    }
-  ];
-  success: aNode;
-  failure: aNode;
+  events: EventType[];
+  success: NodeVariants;
+  failure: NodeVariants;
 }
