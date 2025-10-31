@@ -1,52 +1,52 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from "vitest";
 import {
   importAdventureFromJSON,
   validateImportedAdventure,
   getImportFileSizeEstimate,
-} from '../adventureImport';
+} from "../adventureImport";
 
 const createValidAdventureData = () => ({
-  id: 'adventure-123',
-  title: 'Test Adventure',
-  description: 'Test description',
-  version: '1.0',
-  tag: 'Draft',
+  id: "adventure-123",
+  title: "Test Adventure",
+  description: "Test description",
+  version: "1.0",
+  tag: "Draft",
   input_aliasing: {
     enabled: false,
     aliases: {},
   },
   assets: {
-    matImage: '',
+    matImage: "",
     audioFiles: [],
   },
   challengeSelectionSettings: {
-    mode: 'sequential',
+    mode: "sequential",
     challenges: [],
   },
   challenges: {
-    'challenge-1': {
-      id: 'challenge-1',
-      title: 'Test Challenge',
-      description: 'Test',
-      version: '1.0',
-      tag: 'Draft',
-      created_at: '2025-01-01T00:00:00Z',
-      updated_at: '2025-01-01T00:00:00Z',
+    "challenge-1": {
+      id: "challenge-1",
+      title: "Test Challenge",
+      description: "Test",
+      version: "1.0",
+      tag: "Draft",
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T00:00:00Z",
       challengeStart: [],
       startNode: {
-        id: 'start-1',
-        type: 'start',
+        id: "start-1",
+        type: "start",
         x: 0,
         y: 0,
         width: 120,
         height: 60,
       },
       nodes: {
-        'node-1': {
-          id: 'node-1',
-          type: 'node',
-          title: 'Node 1',
-          description: '',
+        "node-1": {
+          id: "node-1",
+          type: "node",
+          title: "Node 1",
+          description: "",
           x: 100,
           y: 100,
           width: 180,
@@ -55,31 +55,31 @@ const createValidAdventureData = () => ({
           exitEffects: [],
           timeOut: null,
           events: [],
-          success: 'end-1',
-          failure: 'end-2',
+          success: "end-1",
+          failure: "end-2",
         },
       },
       endNodes: [
         {
-          id: 'end-1',
-          type: 'end',
+          id: "end-1",
+          type: "end",
           x: 200,
           y: 200,
           width: 120,
           height: 60,
-          outcome: 'success',
+          outcome: "success",
         },
       ],
-      _startNodeTarget: 'node-1',
+      _startNodeTarget: "node-1",
     },
   },
-  created_at: '2025-01-01T00:00:00Z',
-  updated_at: '2025-01-01T00:00:00Z',
+  created_at: "2025-01-01T00:00:00Z",
+  updated_at: "2025-01-01T00:00:00Z",
 });
 
-describe('adventureImport', () => {
-  describe('validateImportedAdventure', () => {
-    it('should validate a valid adventure', () => {
+describe("adventureImport", () => {
+  describe("validateImportedAdventure", () => {
+    it("should validate a valid adventure", () => {
       const data = createValidAdventureData();
 
       const result = validateImportedAdventure(data);
@@ -88,21 +88,21 @@ describe('adventureImport', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should fail if data is not an object', () => {
+    it("should fail if data is not an object", () => {
       const result = validateImportedAdventure(null);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Data must be an object');
+      expect(result.errors).toContain("Data must be an object");
     });
 
-    it('should fail if data is a string', () => {
-      const result = validateImportedAdventure('invalid');
+    it("should fail if data is a string", () => {
+      const result = validateImportedAdventure("invalid");
 
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Data must be an object');
+      expect(result.errors).toContain("Data must be an object");
     });
 
-    it('should fail if id is missing', () => {
+    it("should fail if id is missing", () => {
       const data = createValidAdventureData();
       delete (data as any).id;
 
@@ -112,7 +112,7 @@ describe('adventureImport', () => {
       expect(result.errors).toContain("Missing or invalid 'id' field");
     });
 
-    it('should fail if id is not a string', () => {
+    it("should fail if id is not a string", () => {
       const data = createValidAdventureData();
       (data as any).id = 123;
 
@@ -122,7 +122,7 @@ describe('adventureImport', () => {
       expect(result.errors).toContain("Missing or invalid 'id' field");
     });
 
-    it('should fail if title is missing', () => {
+    it("should fail if title is missing", () => {
       const data = createValidAdventureData();
       delete (data as any).title;
 
@@ -132,7 +132,7 @@ describe('adventureImport', () => {
       expect(result.errors).toContain("Missing or invalid 'title' field");
     });
 
-    it('should fail if title is not a string', () => {
+    it("should fail if title is not a string", () => {
       const data = createValidAdventureData();
       (data as any).title = 123;
 
@@ -142,7 +142,7 @@ describe('adventureImport', () => {
       expect(result.errors).toContain("Missing or invalid 'title' field");
     });
 
-    it('should fail if version is missing', () => {
+    it("should fail if version is missing", () => {
       const data = createValidAdventureData();
       delete (data as any).version;
 
@@ -152,17 +152,19 @@ describe('adventureImport', () => {
       expect(result.errors).toContain("Missing or invalid 'version' field");
     });
 
-    it('should fail if input_aliasing is missing', () => {
+    it("should fail if input_aliasing is missing", () => {
       const data = createValidAdventureData();
       delete (data as any).input_aliasing;
 
       const result = validateImportedAdventure(data);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain("Missing or invalid 'input_aliasing' field");
+      expect(result.errors).toContain(
+        "Missing or invalid 'input_aliasing' field"
+      );
     });
 
-    it('should fail if assets is missing', () => {
+    it("should fail if assets is missing", () => {
       const data = createValidAdventureData();
       delete (data as any).assets;
 
@@ -172,7 +174,7 @@ describe('adventureImport', () => {
       expect(result.errors).toContain("Missing or invalid 'assets' field");
     });
 
-    it('should fail if challengeSelectionSettings is missing', () => {
+    it("should fail if challengeSelectionSettings is missing", () => {
       const data = createValidAdventureData();
       delete (data as any).challengeSelectionSettings;
 
@@ -184,26 +186,26 @@ describe('adventureImport', () => {
       );
     });
 
-    it('should fail if challenge structure is invalid', () => {
+    it("should fail if challenge structure is invalid", () => {
       const data = createValidAdventureData();
       (data as any).challenges = {
-        'invalid-challenge': {
+        "invalid-challenge": {
           // Missing id and title
-          description: 'Invalid',
+          description: "Invalid",
         },
       };
 
       const result = validateImportedAdventure(data);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('Invalid challenge structure'))).toBe(
-        true
-      );
+      expect(
+        result.errors.some((e) => e.includes("Invalid challenge structure"))
+      ).toBe(true);
     });
 
-    it('should accumulate multiple errors', () => {
+    it("should accumulate multiple errors", () => {
       const data: any = {
-        description: 'Test',
+        description: "Test",
       };
 
       const result = validateImportedAdventure(data);
@@ -212,7 +214,7 @@ describe('adventureImport', () => {
       expect(result.errors.length).toBeGreaterThan(1);
     });
 
-    it('should validate adventure with empty challenges', () => {
+    it("should validate adventure with empty challenges", () => {
       const data = createValidAdventureData();
       data.challenges = {};
 
@@ -221,20 +223,20 @@ describe('adventureImport', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should validate adventure with multiple challenges', () => {
+    it("should validate adventure with multiple challenges", () => {
       const data = createValidAdventureData();
       data.challenges = {
-        'ch-1': {
-          id: 'ch-1',
-          title: 'Challenge 1',
-          description: '',
-          version: '1.0',
+        "ch-1": {
+          id: "ch-1",
+          title: "Challenge 1",
+          description: "",
+          version: "1.0",
         },
-        'ch-2': {
-          id: 'ch-2',
-          title: 'Challenge 2',
-          description: '',
-          version: '1.0',
+        "ch-2": {
+          id: "ch-2",
+          title: "Challenge 2",
+          description: "",
+          version: "1.0",
         },
       };
 
@@ -244,11 +246,11 @@ describe('adventureImport', () => {
     });
   });
 
-  describe('importAdventureFromJSON', () => {
-    it('should import valid adventure from file', async () => {
+  describe("importAdventureFromJSON", () => {
+    it("should import valid adventure from file", async () => {
       const data = createValidAdventureData();
-      const file = new File([JSON.stringify(data)], 'adventure.json', {
-        type: 'application/json',
+      const file = new File([JSON.stringify(data)], "adventure.json", {
+        type: "application/json",
       });
 
       const result = await importAdventureFromJSON(file);
@@ -258,13 +260,13 @@ describe('adventureImport', () => {
       expect(result.version).toBe(data.version);
     });
 
-    it('should generate new IDs for adventure and challenges', async () => {
+    it("should generate new IDs for adventure and challenges", async () => {
       const data = createValidAdventureData();
       const originalAdventureId = data.id;
-      const originalChallengeId = data.challenges['challenge-1'].id;
+      const originalChallengeId = data.challenges["challenge-1"].id;
 
-      const file = new File([JSON.stringify(data)], 'adventure.json', {
-        type: 'application/json',
+      const file = new File([JSON.stringify(data)], "adventure.json", {
+        type: "application/json",
       });
 
       const result = await importAdventureFromJSON(file);
@@ -274,14 +276,14 @@ describe('adventureImport', () => {
       expect(importedChallengeId).not.toBe(originalChallengeId);
     });
 
-    it('should remap node IDs in challenges', async () => {
+    it("should remap node IDs in challenges", async () => {
       const data = createValidAdventureData();
       const originalNodeId = Object.keys(
-        data.challenges['challenge-1'].nodes
+        data.challenges["challenge-1"].nodes
       )[0];
 
-      const file = new File([JSON.stringify(data)], 'adventure.json', {
-        type: 'application/json',
+      const file = new File([JSON.stringify(data)], "adventure.json", {
+        type: "application/json",
       });
 
       const result = await importAdventureFromJSON(file);
@@ -291,10 +293,10 @@ describe('adventureImport', () => {
       expect(importedNodeId).not.toBe(originalNodeId);
     });
 
-    it('should update node references after remapping', async () => {
+    it("should update node references after remapping", async () => {
       const data = createValidAdventureData();
-      const file = new File([JSON.stringify(data)], 'adventure.json', {
-        type: 'application/json',
+      const file = new File([JSON.stringify(data)], "adventure.json", {
+        type: "application/json",
       });
 
       const result = await importAdventureFromJSON(file);
@@ -307,10 +309,10 @@ describe('adventureImport', () => {
       expect(importedNode.failure).toBeDefined();
     });
 
-    it('should preserve _startNodeTarget metadata with new ID', async () => {
+    it("should preserve _startNodeTarget metadata with new ID", async () => {
       const data = createValidAdventureData();
-      const file = new File([JSON.stringify(data)], 'adventure.json', {
-        type: 'application/json',
+      const file = new File([JSON.stringify(data)], "adventure.json", {
+        type: "application/json",
       });
 
       const result = await importAdventureFromJSON(file);
@@ -323,33 +325,33 @@ describe('adventureImport', () => {
       expect(Object.keys(importedChallenge.nodes)).toContain(startNodeTarget);
     });
 
-    it('should reject invalid JSON file', async () => {
-      const file = new File(['invalid json'], 'adventure.json', {
-        type: 'application/json',
+    it("should reject invalid JSON file", async () => {
+      const file = new File(["invalid json"], "adventure.json", {
+        type: "application/json",
       });
 
       await expect(importAdventureFromJSON(file)).rejects.toThrow(
-        'Failed to parse JSON file'
+        "Failed to parse JSON file"
       );
     });
 
-    it('should reject file with invalid adventure structure', async () => {
+    it("should reject file with invalid adventure structure", async () => {
       const invalidData = {
-        title: 'Missing required fields',
+        title: "Missing required fields",
       };
-      const file = new File([JSON.stringify(invalidData)], 'adventure.json', {
-        type: 'application/json',
+      const file = new File([JSON.stringify(invalidData)], "adventure.json", {
+        type: "application/json",
       });
 
       await expect(importAdventureFromJSON(file)).rejects.toThrow(
-        'Invalid adventure file'
+        "Invalid adventure file"
       );
     });
 
-    it('should set new created_at and updated_at timestamps', async () => {
+    it("should set new created_at and updated_at timestamps", async () => {
       const data = createValidAdventureData();
-      const file = new File([JSON.stringify(data)], 'adventure.json', {
-        type: 'application/json',
+      const file = new File([JSON.stringify(data)], "adventure.json", {
+        type: "application/json",
       });
 
       const beforeImport = new Date().toISOString();
@@ -360,43 +362,50 @@ describe('adventureImport', () => {
       expect(result.created_at >= beforeImport).toBe(true);
       expect(result.created_at <= afterImport).toBe(true);
     });
-
   });
 
-  describe('getImportFileSizeEstimate', () => {
-    it('should return size in bytes for small files', () => {
-      const file = new File(['test'], 'test.json', { type: 'application/json' });
+  describe("getImportFileSizeEstimate", () => {
+    it("should return size in bytes for small files", () => {
+      const file = new File(["test"], "test.json", {
+        type: "application/json",
+      });
 
       const size = getImportFileSizeEstimate(file);
 
-      expect(size).toBe('4 bytes');
+      expect(size).toBe("4 bytes");
     });
 
-    it('should return size in KB for medium files', () => {
-      const content = 'a'.repeat(2048);
-      const file = new File([content], 'test.json', { type: 'application/json' });
+    it("should return size in KB for medium files", () => {
+      const content = "a".repeat(2048);
+      const file = new File([content], "test.json", {
+        type: "application/json",
+      });
 
       const size = getImportFileSizeEstimate(file);
 
-      expect(size).toContain('KB');
+      expect(size).toContain("KB");
     });
 
-    it('should return size in MB for large files', () => {
-      const content = 'a'.repeat(2 * 1024 * 1024);
-      const file = new File([content], 'test.json', { type: 'application/json' });
+    it("should return size in MB for large files", () => {
+      const content = "a".repeat(2 * 1024 * 1024);
+      const file = new File([content], "test.json", {
+        type: "application/json",
+      });
 
       const size = getImportFileSizeEstimate(file);
 
-      expect(size).toContain('MB');
+      expect(size).toContain("MB");
     });
 
-    it('should format KB size correctly', () => {
-      const content = 'a'.repeat(1536); // 1.5 KB
-      const file = new File([content], 'test.json', { type: 'application/json' });
+    it("should format KB size correctly", () => {
+      const content = "a".repeat(1536); // 1.5 KB
+      const file = new File([content], "test.json", {
+        type: "application/json",
+      });
 
       const size = getImportFileSizeEstimate(file);
 
-      expect(size).toBe('1.5 KB');
+      expect(size).toBe("1.5 KB");
     });
   });
 });
