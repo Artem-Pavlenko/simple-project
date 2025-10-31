@@ -1,11 +1,12 @@
 import type { FC } from "react";
+import { useNavigate } from "react-router-dom";
 
 import * as S from "./styles";
-import { useNavigate } from "react-router-dom";
+import type { RoutePathNameType } from "../../utils/types";
 
 interface IProps {
   text?: string;
-  route?: string;
+  route?: RoutePathNameType;
 }
 
 export const GoBack: FC<IProps> = ({ text, route }) => {
@@ -21,8 +22,7 @@ export const GoBack: FC<IProps> = ({ text, route }) => {
 
   return (
     <S.Wrapper onClick={onBack}>
-      <S.Text>{"< "}</S.Text>
-      {text && <S.Text>{text}</S.Text>}
+      <S.Text>{`< ${text}`}</S.Text>
     </S.Wrapper>
   );
 };

@@ -5,7 +5,7 @@ export const Table = styled.table`
   border-collapse: collapse;
   background: #fff;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
 `;
 
 export const Th = styled.th`
@@ -23,6 +23,7 @@ export const Td = styled.td`
   font-size: 14px;
   color: #444;
   vertical-align: top;
+  position: relative;
 `;
 
 export const Badge = styled.span<{ $type?: "draft" | "final" }>`
@@ -37,6 +38,7 @@ export const Badge = styled.span<{ $type?: "draft" | "final" }>`
 export const Actions = styled.div`
   display: flex;
   gap: 6px;
+  position: relative;
 `;
 
 export const Button = styled.button<{ $color: string }>`

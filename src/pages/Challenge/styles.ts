@@ -13,3 +13,13 @@ export const Title = styled.h2`
   font-size: 24px;
   margin-bottom: 20px;
 `;
+
+export const NewChallengeBlock = styled.div`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  flex-wrap: wrap;
+  border-radius: 8px;
+  margin-bottom: 40px;
+`;

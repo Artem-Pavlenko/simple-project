@@ -4,7 +4,8 @@ import { ResetPasswordPage } from "../pages/ResetPassword";
 import {
   SignInPage,
   SignUpPage,
-  PanelPage,
+  AdventuresPage,
+  DeletedAdventuresPage,
   EditAdventure,
   ChallengePage,
 } from "../pages";
@@ -46,10 +47,18 @@ export const routers: IRouter[] = [
     ),
   },
   {
+    path: RoutePathNames.DeletedAdventures,
+    element: (
+      <AuthWrapper>
+        <DeletedAdventuresPage />
+      </AuthWrapper>
+    ),
+  },
+  {
     path: RoutePathNames.Home,
     element: (
       <AuthWrapper>
-        <PanelPage />
+        <AdventuresPage />
       </AuthWrapper>
     ),
   },

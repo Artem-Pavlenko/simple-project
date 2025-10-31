@@ -1,10 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type {
-  ChallengeSelectionSettingsType,
-  InputAliasingType,
-  s3KeyType,
-} from "../utils/types/adventure.types";
+import type { AdventureType } from "../utils/types/adventure.types";
 import type { ChallengeType } from "../utils/types/challenge.types";
 
 export interface IUserProfile {
@@ -12,42 +8,16 @@ export interface IUserProfile {
   email: string | null | undefined;
 }
 
-export interface IAdventure {
-  title: string;
-  description: string;
-  tags: string[];
-  version: string;
-  id: string;
-  type: "draft" | "final";
-
-  created_at: string;
-  updated_at: string;
-  input_aliasing: InputAliasingType;
-  assets: {
-    matImage: s3KeyType;
-    audioFiles: [
-      {
-        name: string;
-        s3Key: s3KeyType;
-      }
-    ];
-  };
-  challengeSelectionSettings: ChallengeSelectionSettingsType;
-  challenges: {
-    [key: string]: ChallengeType;
-  };
-}
-
 interface IAdventureStore {
-  adventures: IAdventure[];
-  addAdventure: (adventure: IAdventure) => void;
-  updAdventure: (adventure: IAdventure) => void;
+  adventures: AdventureType[];
+  addAdventure: (adventure: AdventureType) => void;
+  updAdventure: (adventure: AdventureType) => void;
   updAdventureChallenge: (
     adventureId: string,
     challenge: ChallengeType
   ) => void;
   clearAdventures: () => void;
-  setAdventures: (adventures: IAdventure[]) => void;
+  setAdventures: (adventures: AdventureType[]) => void;
   deleteAdventure: (id: string) => void;
 }
 

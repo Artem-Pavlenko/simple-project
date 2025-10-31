@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Session } from "@supabase/supabase-js";
 
 import { SupabaseAPI } from "../utils/service/api";
+import { useAdventureStore } from "./adventureStore";
 
 export interface IUserProfile {
   id: string;
@@ -19,6 +20,7 @@ interface IUserStore {
   user: IUserProfile | null;
   session: Session | null;
   loading: boolean;
+  initializing: boolean;
 
   signUp: (
     email: string,
@@ -30,12 +32,14 @@ interface IUserStore {
   fetchUser: () => Promise<void>;
   resetPassword: (email: string, redirectTo?: string) => Promise<void>;
   setUser: (user: IUserProfile | null) => void;
+  setInitializing: (initializing: boolean) => void;
 }
 
 export const useUserStore = create<IUserStore>((set) => ({
   user: null,
   session: null,
   loading: false,
+  initializing: true,
 
   signUp: async (email, password, userData) => {
     set({ loading: true });
@@ -90,6 +94,8 @@ export const useUserStore = create<IUserStore>((set) => ({
     try {
       await SupabaseAPI.signOut();
       set({ user: null, session: null });
+      useAdventureStore.getState().clearAdventures();
+      localStorage.removeItem("adventures-storage");
     } finally {
       set({ loading: false });
     }
@@ -123,6 +129,10 @@ export const useUserStore = create<IUserStore>((set) => ({
 
   setUser(user) {
     set({ user });
+  },
+
+  setInitializing(initializing) {
+    set({ initializing });
   },
 
   resetPassword: async (email, redirectTo) => {

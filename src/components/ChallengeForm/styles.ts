@@ -2,6 +2,7 @@ import styled from "styled-components";
 
 export const Wrapper = styled.div`
   width: 100%;
+  height: 100%;
   margin: 0 auto;
   background: #fff;
   border-radius: 12px;
@@ -13,6 +14,12 @@ export const Header = styled.div`
   display: flex;
   align-items: center;
   margin-bottom: 8px;
+`;
+
+export const HeaderText = styled.span`
+  font-weight: 600;
+  font-size: 18px;
+  color: #3a3a3a;
 `;
 
 export const Avatar = styled.div`

@@ -7,7 +7,7 @@ export const SettingsTabContent = styled.div`
 `;
 
 export const Label = styled.label<{
-  marginTop?: number;
+  $marginTop?: number;
   marginBottom?: number;
 }>`
   display: block;
@@ -15,7 +15,7 @@ export const Label = styled.label<{
     marginBottom ? `${marginBottom}px` : "4px"};
   font-weight: 600;
 
-  ${({ marginTop }) => (marginTop ? `margin-top: ${marginTop}px;` : "")}
+  ${({ $marginTop }) => ($marginTop ? `margin-top: ${$marginTop}px;` : "")}
 `;
 
 export const Description = styled.p`

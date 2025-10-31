@@ -1,7 +1,7 @@
 import styled from "styled-components";
 
 interface IBtnProps {
-  marginBottom?: number;
+  $marginBottom?: number;
 }
 
 export const AddButton = styled.button<IBtnProps>`
@@ -12,9 +12,10 @@ export const AddButton = styled.button<IBtnProps>`
   border: none;
   border-radius: 18px;
   cursor: pointer;
-  margin-bottom: ${({ marginBottom }) => marginBottom}px;
+  margin-bottom: ${({ $marginBottom }) => $marginBottom}px;
   font-weight: 600;
   transition: all 0.3s ease-in-out;
+  width: fit-content;
 
   &:hover {
     background-color: #1e40af;

@@ -14,7 +14,7 @@ export const DeleteButton: React.FC<DeleteButtonProps> = ({
   const [open, setOpen] = useState(false);
 
   return (
-    <S.DeleteWrapper>
+    <S.DeleteWrapper $isOpen={open}>
       <S.Button $color="#dc3545" onClick={() => setOpen((prev) => !prev)}>
         Delete
       </S.Button>
@@ -26,7 +26,13 @@ export const DeleteButton: React.FC<DeleteButtonProps> = ({
           </div>
           <S.PopoverActions>
             <S.Button onClick={() => setOpen(false)}>Cancel</S.Button>
-            <S.Button $color="#dc3545" onClick={onDelete}>
+            <S.Button
+              $color="#dc3545"
+              onClick={() => {
+                onDelete();
+                setOpen(false);
+              }}
+            >
               Delete
             </S.Button>
           </S.PopoverActions>

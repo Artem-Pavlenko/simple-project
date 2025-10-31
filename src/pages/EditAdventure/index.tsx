@@ -17,10 +17,16 @@ export const EditAdventure: FC = () => {
     if (!adventure) {
       navigate(RoutePathNames.YouAdventures);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adventure]);
 
   return (
-    <PageWrapper withSideBar={false} goBackText="Adventure list" withBackButton>
+    <PageWrapper
+      withSideBar={false}
+      goBackText="Adventure list"
+      withBackButton
+      backRoute="/"
+    >
       <S.Wrapper>
         <S.Title>{adventure?.title}</S.Title>
 

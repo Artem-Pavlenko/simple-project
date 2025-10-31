@@ -1,0 +1,1781 @@
+import { useCallback, useEffect, useState, useMemo } from "react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  addEdge,
+  useNodesState,
+  useEdgesState,
+  type Node,
+  type Edge,
+  type Connection,
+  type NodeChange,
+  type EdgeChange,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+
+import type { ChallengeType } from "../../../utils/types/challenge.types";
+import type { AdventureType } from "../../../utils/types/adventure.types";
+import type {
+  IStartNode,
+  IntermediateNode,
+  IEndNode,
+  NodeType,
+  NodeVariants,
+} from "../../../utils/types/node.types";
+import { NodeCard } from "./NodeCard";
+import { NodeEditor } from "../../NodeEditor";
+import { LoadingOverlay } from "../../LoadingOverlay";
+import { ValidationPanel } from "../../ValidationPanel";
+import {
+  validateFlowchart,
+  type ValidationResult,
+} from "../../../utils/validation/flowchartValidation";
+import * as S from "./styles";
+
+interface CustomNodeData extends Record<string, unknown> {
+  label: string;
+  type: NodeType;
+  nodeData: NodeVariants;
+  onAddNode?: () => void;
+  onDeleteNode?: (id: string) => void;
+}
+
+export interface FlowchartProps {
+  challenge?: ChallengeType | null;
+  adventure?: AdventureType;
+  onUpdateAdventure?: (updatedAdventure: AdventureType) => Promise<void>;
+}
+
+export const Flowchart: React.FC<FlowchartProps> = ({
+  challenge,
+  adventure,
+  onUpdateAdventure,
+}) => {
+  const [flowNodes, setFlowNodes, handleNodesChange] = useNodesState<Node>([]);
+  const [flowEdges, setFlowEdges, handleEdgesChange] = useEdgesState<Edge>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [validationResult, setValidationResult] =
+    useState<ValidationResult | null>(null);
+  const [showValidation, setShowValidation] = useState(false);
+
+  // Memoized edges built from challenge data
+  const challengeEdges = useMemo((): Edge[] => {
+    const edges: Edge[] = [];
+    if (!challenge) return edges;
+
+    // Connect startNode to first intermediate node (if exists)
+    // Use _startNodeTarget if available (from import), otherwise fall back to first node
+    const nodeIds = Object.keys(challenge.nodes || {});
+    const startNodeTarget = (challenge as unknown as Record<string, unknown>)._startNodeTarget as string | undefined;
+    const firstNodeId = startNodeTarget || nodeIds[0];
+
+    if (challenge.startNode && firstNodeId && nodeIds.length > 0) {
+      edges.push({
+        id: `e-start-${firstNodeId}`,
+        source: challenge.startNode.id,
+        target: firstNodeId,
+        style: { stroke: "#3b82f6", strokeWidth: 2 },
+        markerEnd: {
+          type: "arrowclosed",
+          color: "#3b82f6",
+        },
+      });
+    }
+
+    // For each intermediate node, connect success/failure based on their string ID references
+    Object.values(challenge.nodes || {}).forEach((node) => {
+      const typedNode = node as IntermediateNode;
+
+      // Add success edge only if it's not self-reference
+      if (typedNode.success && typedNode.success !== typedNode.id) {
+        edges.push({
+          id: `e-${typedNode.id}-success-${typedNode.success}`,
+          source: typedNode.id,
+          target: typedNode.success,
+          sourceHandle: "success",
+          label: "Success",
+          style: { stroke: "#22c55e", strokeWidth: 2 },
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#22c55e",
+          },
+        });
+      }
+
+      // Add failure edge only if it's not self-reference (RESTART)
+      if (typedNode.failure && typedNode.failure !== typedNode.id) {
+        edges.push({
+          id: `e-${typedNode.id}-failure-${typedNode.failure}`,
+          source: typedNode.id,
+          target: typedNode.failure,
+          sourceHandle: "failure",
+          label: "Failure",
+          style: { stroke: "#ef4444", strokeWidth: 2 },
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#ef4444",
+          },
+        });
+      }
+    });
+
+    return edges;
+  }, [challenge]);
+
+  // Custom handler for node changes to track position updates
+  const handleCustomNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      handleNodesChange(changes);
+
+      // Check if any position changes occurred
+      const hasPositionChanges = changes.some(
+        (change) =>
+          change.type === "position" &&
+          "dragging" in change &&
+          change.dragging === false
+      );
+
+      if (hasPositionChanges) {
+        setHasUnsavedChanges(true);
+      }
+    },
+    [handleNodesChange, setHasUnsavedChanges]
+  );
+
+  // Custom handler for edge changes to track modifications
+  const handleCustomEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      handleEdgesChange(changes);
+
+      // Check if any edges were removed
+      const hasEdgeChanges = changes.some((change) => change.type === "remove");
+
+      if (hasEdgeChanges) {
+        setHasUnsavedChanges(true);
+      }
+    },
+    [handleEdgesChange, setHasUnsavedChanges]
+  );
+
+  const handleNodeClick = useCallback(
+    (nodeId: string, nodeType: string) => {
+      if (nodeType === "start" || isSaving) return;
+      setSelectedNodeId(nodeId === selectedNodeId ? null : nodeId);
+    },
+    [selectedNodeId, isSaving]
+  );
+
+  // Get the selected node data for editing
+  const selectedNodeForEditing = useMemo(():
+    | IntermediateNode
+    | IEndNode
+    | null => {
+    if (!selectedNodeId) {
+      return null;
+    }
+
+    const flowNode = flowNodes.find((n) => n.id === selectedNodeId);
+    if (
+      !flowNode ||
+      (flowNode.data.type !== "node" && flowNode.data.type !== "end")
+    ) {
+      return null;
+    }
+
+    // Handle IntermediateNode editing
+    if (flowNode.data.type === "node") {
+      const nodeData = flowNode.data?.nodeData as IntermediateNode;
+
+      return {
+        id: selectedNodeId,
+        type: "node",
+        x: flowNode.position.x,
+        y: flowNode.position.y,
+        width: (flowNode.style?.width as number) || 180,
+        height: (flowNode.style?.height as number) || 80,
+        title: (flowNode.data.label as string) || `Node ${selectedNodeId}`,
+        description: nodeData?.description || "",
+        entryEffects: nodeData?.entryEffects || [],
+        exitEffects: nodeData?.exitEffects || [],
+        timeOut: nodeData?.timeOut || null,
+        events: nodeData?.events || [],
+        success: nodeData?.success || `${selectedNodeId}-success`,
+        failure: nodeData?.failure || `${selectedNodeId}-failure`,
+      };
+    }
+
+    // Handle EndNode editing
+    if (flowNode.data.type === "end") {
+      const endNodeData = flowNode.data?.nodeData as IEndNode;
+      return {
+        id: selectedNodeId,
+        type: "end",
+        x: flowNode.position.x,
+        y: flowNode.position.y,
+        width: (flowNode.style?.width as number) || 120,
+        height: (flowNode.style?.height as number) || 60,
+        outcome: endNodeData?.outcome || "success",
+      } as IEndNode;
+    }
+
+    return null;
+  }, [selectedNodeId, flowNodes]);
+
+  // Helper function to build current challenge from flow state
+  const buildCurrentChallenge = useCallback((): ChallengeType | null => {
+    if (!challenge) return null;
+
+    // Build current state from flowNodes
+    const currentNodes: Record<string, IntermediateNode> = {};
+    let currentStartNode = challenge.startNode;
+    const currentEndNodes: IEndNode[] = [];
+
+    flowNodes.forEach((node) => {
+      if (node.data.type === "start" && challenge.startNode) {
+        // Update start node coordinates
+        currentStartNode = {
+          ...challenge.startNode,
+          x: node.position.x,
+          y: node.position.y,
+        };
+      } else if (node.data.type === "end") {
+        // Add end node with outcome
+        const endNodeData = node.data.nodeData as IEndNode;
+        const endNode: IEndNode = {
+          id: node.id,
+          type: "end",
+          x: node.position.x,
+          y: node.position.y,
+          width: (node.style?.width as number) || 120,
+          height: (node.style?.height as number) || 60,
+          outcome: endNodeData?.outcome || "success",
+        };
+        currentEndNodes.push(endNode);
+      } else if (node.data.type === "node" && node.data.nodeData) {
+        // Add intermediate node with success/failure as string IDs
+        const nodeData = node.data.nodeData as IntermediateNode;
+
+        // Find success and failure connections from edges
+        const successEdge = flowEdges.find(
+          (edge) => edge.source === node.id && edge.sourceHandle === "success"
+        );
+        const failureEdge = flowEdges.find(
+          (edge) => edge.source === node.id && edge.sourceHandle === "failure"
+        );
+
+        // Use edge targets as string IDs, or fall back to nodeData
+        currentNodes[node.id] = {
+          ...nodeData,
+          x: node.position.x,
+          y: node.position.y,
+          title: node.data.label as string,
+          success: successEdge?.target || nodeData.success,
+          failure: failureEdge?.target || nodeData.failure,
+        };
+      }
+    });
+
+    // Reorder nodes so the first node is the one connected to Start
+    const startEdge = flowEdges.find(
+      (edge) => edge.source === challenge.startNode?.id
+    );
+    const firstNodeId = startEdge?.target;
+
+    // Rebuild nodes object with first node first
+    const orderedNodes: Record<string, IntermediateNode> = {};
+    if (firstNodeId && currentNodes[firstNodeId]) {
+      orderedNodes[firstNodeId] = currentNodes[firstNodeId];
+    }
+    // Add remaining nodes
+    Object.keys(currentNodes).forEach((nodeId) => {
+      if (nodeId !== firstNodeId) {
+        orderedNodes[nodeId] = currentNodes[nodeId];
+      }
+    });
+
+    const updatedChallenge = {
+      ...challenge,
+      startNode: currentStartNode,
+      nodes: orderedNodes,
+      endNodes: currentEndNodes,
+    };
+
+    // Preserve _startNodeTarget metadata for correct Start node connection after database round-trip
+    if (firstNodeId) {
+      (updatedChallenge as Record<string, unknown>)._startNodeTarget = firstNodeId;
+    }
+
+    return updatedChallenge;
+  }, [challenge, flowNodes, flowEdges]);
+
+  // Flowchart validation
+  const handleValidate = useCallback(() => {
+    const currentChallenge = buildCurrentChallenge();
+    if (!currentChallenge) {
+      setValidationResult(null);
+      return;
+    }
+
+    const result = validateFlowchart(currentChallenge);
+    setValidationResult(result);
+    setShowValidation(true);
+  }, [buildCurrentChallenge]);
+
+  // Automatic validation when challenge or flowNodes change
+  useEffect(() => {
+    const currentChallenge = buildCurrentChallenge();
+    if (currentChallenge && hasUnsavedChanges) {
+      const result = validateFlowchart(currentChallenge);
+      setValidationResult(result);
+    }
+  }, [buildCurrentChallenge, hasUnsavedChanges]);
+
+  // Function to navigate to error node
+  const handleValidationErrorClick = useCallback(
+    (nodeId: string) => {
+      setSelectedNodeId(nodeId);
+
+      // Find the node in ReactFlow and center on it
+      const node = flowNodes.find((n) => n.id === nodeId);
+      if (node) {
+        // Here you can add logic for centering on the node
+        console.log("Focus on node:", nodeId, node);
+      }
+    },
+    [flowNodes]
+  );
+
+  const handleNodeUpdate = useCallback(
+    (updatedNode: IntermediateNode) => {
+      // Update the node in the flowchart
+      setFlowNodes((nodes) =>
+        nodes.map((node) =>
+          node.id === updatedNode.id
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  label: updatedNode.title,
+                  nodeData: updatedNode, // Also update nodeData in local state
+                },
+              }
+            : node
+        )
+      );
+
+      // Mark as having unsaved changes
+      setHasUnsavedChanges(true);
+    },
+    [setFlowNodes]
+  );
+
+  // Save changes to Supabase
+  const handleSaveChanges = useCallback(async () => {
+    if (!adventure || !challenge || !onUpdateAdventure || !hasUnsavedChanges) {
+      return;
+    }
+
+    setIsSaving(true);
+    setSelectedNodeId(null); // Close NodeEditor during saving
+
+    try {
+      // Build updated challenge from current flow state
+      const updatedNodes: Record<string, IntermediateNode> = {};
+      let updatedStartNode = challenge.startNode;
+      const updatedEndNodes: IEndNode[] = [];
+
+      flowNodes.forEach((node) => {
+        if (node.data.type === "start" && challenge.startNode) {
+          // Update start node coordinates
+          updatedStartNode = {
+            ...challenge.startNode,
+            x: node.position.x,
+            y: node.position.y,
+          };
+        } else if (node.data.type === "end") {
+          // Update end node with outcome
+          const endNodeData = node.data.nodeData as IEndNode;
+          const endNode: IEndNode = {
+            id: node.id,
+            type: "end",
+            x: node.position.x,
+            y: node.position.y,
+            width: (node.style?.width as number) || 120,
+            height: (node.style?.height as number) || 60,
+            outcome: endNodeData?.outcome || "success",
+          };
+          updatedEndNodes.push(endNode);
+        } else if (node.data.type === "node" && node.data.nodeData) {
+          // Update intermediate node with success/failure as string IDs
+          const nodeData = node.data.nodeData as IntermediateNode;
+
+          // Find success and failure connections from edges
+          const successEdge = flowEdges.find(
+            (edge) => edge.source === node.id && edge.sourceHandle === "success"
+          );
+          const failureEdge = flowEdges.find(
+            (edge) => edge.source === node.id && edge.sourceHandle === "failure"
+          );
+
+          // Use edge targets as string IDs, or fall back to nodeData
+          updatedNodes[node.id] = {
+            ...nodeData,
+            x: node.position.x,
+            y: node.position.y,
+            title: node.data.label as string,
+            success: successEdge?.target || nodeData.success,
+            failure: failureEdge?.target || nodeData.failure,
+          };
+        }
+      });
+
+      // Reorder nodes so the first node is the one connected to Start
+      const startEdge = flowEdges.find(
+        (edge) => edge.source === challenge.startNode?.id
+      );
+      const firstNodeId = startEdge?.target;
+
+      // Rebuild nodes object with first node first
+      const orderedNodes: Record<string, IntermediateNode> = {};
+      if (firstNodeId && updatedNodes[firstNodeId]) {
+        orderedNodes[firstNodeId] = updatedNodes[firstNodeId];
+      }
+      // Add remaining nodes
+      Object.keys(updatedNodes).forEach((nodeId) => {
+        if (nodeId !== firstNodeId) {
+          orderedNodes[nodeId] = updatedNodes[nodeId];
+        }
+      });
+
+      const updatedChallenge: ChallengeType = {
+        ...challenge,
+        startNode: updatedStartNode,
+        nodes: orderedNodes, // Use ordered nodes
+        endNodes: updatedEndNodes,
+        updated_at: new Date().toISOString(),
+      };
+
+      const updatedAdventure: AdventureType = {
+        ...adventure,
+        challenges: {
+          ...adventure.challenges,
+          [updatedChallenge.id]: updatedChallenge,
+        },
+      };
+
+      await onUpdateAdventure(updatedAdventure);
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error("Failed to save changes:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    adventure,
+    challenge,
+    onUpdateAdventure,
+    hasUnsavedChanges,
+    flowNodes,
+    flowEdges,
+    setIsSaving,
+    setHasUnsavedChanges,
+  ]);
+
+  const handleDeleteNode = useCallback(
+    (id: string) => {
+      // Prevent deleting start node
+      const nodeToDelete = flowNodes.find((n) => n.id === id);
+      if (nodeToDelete?.data.type === "start") return;
+
+      // Find all edges connected to the node being deleted
+      const edgesToDelete = new Set<string>();
+      const nodesToDelete = new Set<string>();
+
+      // Add the main node to deletion list
+      nodesToDelete.add(id);
+
+      // Find all edges connected to this node
+      flowEdges.forEach((edge) => {
+        if (edge.source === id || edge.target === id) {
+          edgesToDelete.add(edge.id);
+
+          // If this is an outgoing edge from the node being deleted
+          if (edge.source === id) {
+            const targetNode = flowNodes.find((n) => n.id === edge.target);
+
+            // Only delete the target node if it's an END node
+            // Keep IntermediateNodes (type === "node")
+            if (targetNode && targetNode.data.type === "end") {
+              // Additional check: only delete end nodes that belong to this specific node
+              // (following naming pattern like nodeId-success or nodeId-failure)
+              if (edge.target.startsWith(`${id}-`)) {
+                nodesToDelete.add(edge.target);
+              }
+            }
+            // If target is IntermediateNode (type === "node"), we keep it and only remove the edge
+          }
+        }
+      });
+
+      // Update flow state
+      setFlowNodes((nds) => nds.filter((n) => !nodesToDelete.has(n.id)));
+      setFlowEdges((eds) => eds.filter((e) => !edgesToDelete.has(e.id)));
+
+      // Mark as having unsaved changes
+      setHasUnsavedChanges(true);
+    },
+    [flowNodes, flowEdges, setFlowNodes, setFlowEdges, setHasUnsavedChanges]
+  );
+
+  const nodeToReactFlow = useCallback(
+    (
+      node: IStartNode | IntermediateNode | IEndNode,
+      onAddNode?: () => void,
+      onDeleteNode?: () => void
+    ): Node => {
+      let label: string = node.type;
+      if ("title" in node && typeof node.title === "string") label = node.title;
+      return {
+        id: node.id,
+        type: "custom",
+        position: { x: node.x, y: node.y },
+        data: {
+          label,
+          type: node.type,
+          id: node.id,
+          position: { x: node.x, y: node.y },
+          onAddNode,
+          onDeleteNode,
+          nodeData: node, // Pass full node data for potential future use
+        } as CustomNodeData,
+        style: {
+          borderRadius: 8,
+          boxShadow: "0 2px 8px #0001",
+        },
+      };
+    },
+    []
+  );
+
+  const handleAddNode = useCallback(
+    (parentId?: string) => {
+      const newId = `node-${crypto.randomUUID()}`;
+      const successId = `${newId}-success`;
+      const failureId = `${newId}-failure`;
+
+      // Calculate position based on parent or default
+      let newX = 250;
+      let newY = 200;
+
+      // Find parent node from current flow nodes
+      const parentNode = flowNodes.find((n) => n.id === parentId);
+      if (parentNode) {
+        newX = parentNode.position.x;
+        newY = parentNode.position.y + 150;
+      }
+
+      const newNode: IntermediateNode = {
+        id: newId,
+        type: "node",
+        x: newX,
+        y: newY,
+        width: 180,
+        height: 80,
+        title: `Node ${
+          flowNodes.filter((n) => n.data.type === "node").length + 1
+        }`,
+        description: "",
+        entryEffects: [],
+        exitEffects: [],
+        timeOut: null,
+        events: [],
+        success: successId, // String ID instead of object
+        failure: failureId, // String ID instead of object
+      };
+
+      // Create the end nodes separately
+      const successEndNode: IEndNode = {
+        id: successId,
+        type: "end",
+        x: newX + 250,
+        y: newY - 50,
+        width: 120,
+        height: 60,
+        outcome: "success",
+      };
+
+      const failureEndNode: IEndNode = {
+        id: failureId,
+        type: "end",
+        x: newX + 250,
+        y: newY + 100,
+        width: 120,
+        height: 60,
+        outcome: "failure",
+      };
+
+      // Add new nodes to flow
+      const newFlowNodes = [
+        nodeToReactFlow(
+          newNode,
+          () => handleAddNode(newNode.id),
+          () => handleDeleteNode(newNode.id)
+        ),
+        nodeToReactFlow(successEndNode, undefined, () =>
+          handleDeleteNode(successId)
+        ),
+        nodeToReactFlow(failureEndNode, undefined, () =>
+          handleDeleteNode(failureId)
+        ),
+      ];
+
+      setFlowNodes((nds) => {
+        const updatedNodes = [...nds, ...newFlowNodes];
+        return updatedNodes;
+      });
+
+      // Add edges from parent to new node and from new node to success/failure
+      const newEdges: Edge[] = [];
+
+      if (parentId) {
+        newEdges.push({
+          id: `e-${parentId}-${newId}`,
+          source: parentId,
+          target: newId,
+          style: { stroke: "#3b82f6", strokeWidth: 3 },
+          animated: true,
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#3b82f6",
+          },
+        });
+      }
+
+      newEdges.push(
+        {
+          id: `e-${newId}-success-${successId}`,
+          source: newId,
+          target: successId,
+          sourceHandle: "success",
+          label: "Success",
+          style: { stroke: "#22c55e", strokeWidth: 3 },
+          animated: true,
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#22c55e",
+          },
+        },
+        {
+          id: `e-${newId}-failure-${failureId}`,
+          source: newId,
+          target: failureId,
+          sourceHandle: "failure",
+          label: "Failure",
+          style: { stroke: "#ef4444", strokeWidth: 3 },
+          animated: false,
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#ef4444",
+          },
+        }
+      );
+
+      setFlowEdges((eds) => {
+        const updatedEdges = [...eds, ...newEdges];
+        return updatedEdges;
+      });
+
+      // Mark as having unsaved changes
+      setHasUnsavedChanges(true);
+    },
+    [
+      flowNodes,
+      nodeToReactFlow,
+      handleDeleteNode,
+      setFlowNodes,
+      setFlowEdges,
+      setHasUnsavedChanges,
+    ]
+  );
+
+  const handleAddSuccessNode = useCallback(
+    (parentId: string) => {
+      const parentNode = flowNodes.find((n) => n.id === parentId);
+      if (!parentNode) return;
+
+      const successId = `${parentId}-success`;
+
+      // Check if success node already exists
+      const existingSuccess = flowNodes.find((n) => n.id === successId);
+      if (existingSuccess) return;
+
+      // Find and remove existing success edge (connection to another node)
+      const existingSuccessEdge = flowEdges.find(
+        (edge) => edge.source === parentId && edge.sourceHandle === "success"
+      );
+
+      if (existingSuccessEdge) {
+        // Remove the existing success edge
+        setFlowEdges((eds) =>
+          eds.filter((e) => e.id !== existingSuccessEdge.id)
+        );
+      }
+
+      const successNode: IEndNode = {
+        id: successId,
+        type: "end",
+        x: parentNode.position.x + 250,
+        y: parentNode.position.y - 50,
+        width: 120,
+        height: 60,
+        outcome: "success",
+      };
+
+      const newFlowNode = nodeToReactFlow(successNode, undefined, () =>
+        handleDeleteNode(successId)
+      );
+
+      const newEdge: Edge = {
+        id: `e-${parentId}-success-${successId}`,
+        source: parentId,
+        target: successId,
+        sourceHandle: "success",
+        label: "Success",
+        style: { stroke: "#22c55e", strokeWidth: 3 },
+        animated: true,
+        markerEnd: {
+          type: "arrowclosed",
+          color: "#22c55e",
+        },
+      };
+
+      setFlowNodes((nds) => [...nds, newFlowNode]);
+      setFlowEdges((eds) => [...eds, newEdge]);
+      setHasUnsavedChanges(true);
+    },
+    [
+      flowNodes,
+      flowEdges,
+      nodeToReactFlow,
+      handleDeleteNode,
+      setFlowNodes,
+      setFlowEdges,
+      setHasUnsavedChanges,
+    ]
+  );
+
+  const handleAddFailureNode = useCallback(
+    (parentId: string) => {
+      const parentNode = flowNodes.find((n) => n.id === parentId);
+      if (!parentNode) return;
+
+      const failureId = `${parentId}-failure`;
+
+      // Check if a node with this exact ID already exists (any type)
+      const existingNodeWithSameId = flowNodes.find((n) => n.id === failureId);
+
+      // If it's already a failure end node with correct outcome, don't recreate
+      if (
+        existingNodeWithSameId &&
+        existingNodeWithSameId.data.type === "end" &&
+        (existingNodeWithSameId.data.nodeData as IEndNode).outcome === "failure"
+      ) {
+        // Already correct, nothing to do
+        return;
+      }
+
+      // Find and remove existing failure edge (connection to another node)
+      const existingFailureEdge = flowEdges.find(
+        (edge) => edge.source === parentId && edge.sourceHandle === "failure"
+      );
+
+      // If node with same ID exists but is NOT a failure end node, rename it to avoid conflict
+      let nodeToRename: Node | null = null;
+      let newIdForRenamedNode: string | null = null;
+
+      if (existingNodeWithSameId && existingNodeWithSameId.data.type !== "end") {
+        // This is an intermediate node that was converted from failure end node
+        // Give it a new unique ID to avoid conflict
+        nodeToRename = existingNodeWithSameId;
+        newIdForRenamedNode = `node-${crypto.randomUUID()}`;
+      }
+
+      // Remove existing failure edge
+      if (existingFailureEdge) {
+        setFlowEdges((eds) =>
+          eds.filter((e) => e.id !== existingFailureEdge.id)
+        );
+      }
+
+      // Create new failure end node
+      const failureNode: IEndNode = {
+        id: failureId,
+        type: "end",
+        x: parentNode.position.x + 250,
+        y: parentNode.position.y + 100,
+        width: 120,
+        height: 60,
+        outcome: "failure",
+      };
+
+      const newFlowNode = nodeToReactFlow(failureNode, undefined, () =>
+        handleDeleteNode(failureId)
+      );
+
+      // Update parent node's nodeData AND handle node renaming if needed
+      if (parentNode.data.type === "node") {
+        const nodeData = parentNode.data.nodeData as IntermediateNode;
+
+        const updatedNodeData: IntermediateNode = {
+          ...nodeData,
+          failure: failureId, // Update to new failure node ID
+        };
+
+        setFlowNodes((nds) => {
+          let updatedNodes = nds;
+
+          // Rename the conflicting node and its children if needed
+          if (nodeToRename && newIdForRenamedNode) {
+            const oldSuccessId = `${failureId}-success`;
+            const oldFailureId = `${failureId}-failure`;
+            const newSuccessId = `${newIdForRenamedNode}-success`;
+            const newFailureId = `${newIdForRenamedNode}-failure`;
+
+            updatedNodes = nds.map((node) => {
+              // Rename the conflicting node itself
+              if (node.id === nodeToRename.id) {
+                const oldNodeData = node.data.nodeData as NodeVariants;
+                return {
+                  ...node,
+                  id: newIdForRenamedNode,
+                  data: {
+                    ...node.data,
+                    id: newIdForRenamedNode,
+                    nodeData: {
+                      ...(oldNodeData as object),
+                      id: newIdForRenamedNode,
+                      // Update success/failure references if it's an intermediate node
+                      ...(oldNodeData.type === "node"
+                        ? {
+                            success: (oldNodeData as IntermediateNode).success === oldSuccessId
+                              ? newSuccessId
+                              : (oldNodeData as IntermediateNode).success,
+                            failure: (oldNodeData as IntermediateNode).failure === oldFailureId
+                              ? newFailureId
+                              : (oldNodeData as IntermediateNode).failure,
+                          }
+                        : {}),
+                    } as typeof oldNodeData,
+                  },
+                };
+              }
+              // Rename child success node
+              if (node.id === oldSuccessId) {
+                const oldNodeData = node.data.nodeData;
+                return {
+                  ...node,
+                  id: newSuccessId,
+                  data: {
+                    ...node.data,
+                    id: newSuccessId,
+                    nodeData: {
+                      ...(oldNodeData as object),
+                      id: newSuccessId,
+                    } as typeof oldNodeData,
+                  },
+                };
+              }
+              // Rename child failure node
+              if (node.id === oldFailureId) {
+                const oldNodeData = node.data.nodeData;
+                return {
+                  ...node,
+                  id: newFailureId,
+                  data: {
+                    ...node.data,
+                    id: newFailureId,
+                    nodeData: {
+                      ...(oldNodeData as object),
+                      id: newFailureId,
+                    } as typeof oldNodeData,
+                  },
+                };
+              }
+              return node;
+            });
+          }
+
+          // Update parent node and add new failure node
+          return [
+            ...updatedNodes.map((node) =>
+              node.id === parentId
+                ? {
+                    ...node,
+                    data: {
+                      ...node.data,
+                      nodeData: updatedNodeData,
+                    },
+                  }
+                : node
+            ),
+            newFlowNode, // Add new failure node
+          ];
+        });
+
+        // Update edges that reference the renamed node and its children
+        if (nodeToRename && newIdForRenamedNode) {
+          const oldSuccessId = `${failureId}-success`;
+          const oldFailureId = `${failureId}-failure`;
+          const newSuccessId = `${newIdForRenamedNode}-success`;
+          const newFailureId = `${newIdForRenamedNode}-failure`;
+
+          setFlowEdges((eds) =>
+            eds.map((edge) => {
+              const newSource =
+                edge.source === failureId ? newIdForRenamedNode :
+                edge.source === oldSuccessId ? newSuccessId :
+                edge.source === oldFailureId ? newFailureId :
+                edge.source;
+              const newTarget =
+                edge.target === failureId ? newIdForRenamedNode :
+                edge.target === oldSuccessId ? newSuccessId :
+                edge.target === oldFailureId ? newFailureId :
+                edge.target;
+
+              // If source or target changed, update the edge ID too
+              const needsUpdate = newSource !== edge.source || newTarget !== edge.target;
+
+              return {
+                ...edge,
+                id: needsUpdate
+                  ? `e-${newSource}${edge.sourceHandle ? `-${edge.sourceHandle}` : ''}-${newTarget}`
+                  : edge.id,
+                source: newSource,
+                target: newTarget,
+              };
+            })
+          );
+        }
+      }
+
+      const newEdge: Edge = {
+        id: `e-${parentId}-failure-${failureId}`,
+        source: parentId,
+        target: failureId,
+        sourceHandle: "failure",
+        label: "Failure",
+        style: { stroke: "#ef4444", strokeWidth: 3 },
+        animated: false,
+        markerEnd: {
+          type: "arrowclosed",
+          color: "#ef4444",
+        },
+      };
+
+      setFlowEdges((eds) => [...eds, newEdge]);
+      setHasUnsavedChanges(true);
+    },
+    [
+      flowNodes,
+      flowEdges,
+      nodeToReactFlow,
+      handleDeleteNode,
+      setFlowNodes,
+      setFlowEdges,
+      setHasUnsavedChanges,
+    ]
+  );
+
+  const handleCopyNode = useCallback(
+    (sourceNodeId: string) => {
+      // Find the source node
+      const sourceFlowNode = flowNodes.find((n) => n.id === sourceNodeId);
+      if (!sourceFlowNode || sourceFlowNode.data.type !== "node") return;
+
+      const sourceNodeData = sourceFlowNode.data.nodeData as IntermediateNode;
+
+      const newId = `node-${crypto.randomUUID()}`;
+      const successId = `${newId}-success`;
+      const failureId = `${newId}-failure`;
+
+      // Find free position to the right or above the original node
+      const findFreePosition = (startX: number, startY: number) => {
+        const nodeWidth = 220; // Approximate node width including spacing
+        const nodeHeight = 120; // Approximate node height including spacing
+
+        // Try positions to the right first
+        for (
+          let offsetX = nodeWidth;
+          offsetX <= nodeWidth * 4;
+          offsetX += nodeWidth
+        ) {
+          const testX = startX + offsetX;
+          const testY = startY;
+
+          // Check if this position is free
+          const isOccupied = flowNodes.some((node) => {
+            const nodeX = node.position.x;
+            const nodeY = node.position.y;
+            return (
+              Math.abs(nodeX - testX) < nodeWidth * 0.8 &&
+              Math.abs(nodeY - testY) < nodeHeight * 0.8
+            );
+          });
+
+          if (!isOccupied) {
+            return { x: testX, y: testY };
+          }
+        }
+
+        // If no free space to the right, try above
+        for (
+          let offsetY = -nodeHeight;
+          offsetY >= -nodeHeight * 4;
+          offsetY -= nodeHeight
+        ) {
+          const testX = startX;
+          const testY = startY + offsetY;
+
+          // Check if this position is free
+          const isOccupied = flowNodes.some((node) => {
+            const nodeX = node.position.x;
+            const nodeY = node.position.y;
+            return (
+              Math.abs(nodeX - testX) < nodeWidth * 0.8 &&
+              Math.abs(nodeY - testY) < nodeHeight * 0.8
+            );
+          });
+
+          if (!isOccupied) {
+            return { x: testX, y: testY };
+          }
+        }
+
+        // Fallback: offset to the right and down
+        return { x: startX + nodeWidth, y: startY + nodeHeight };
+      };
+
+      // Calculate new position in free space
+      const freePosition = findFreePosition(
+        sourceFlowNode.position.x,
+        sourceFlowNode.position.y
+      );
+      const newX = freePosition.x;
+      const newY = freePosition.y;
+
+      // Create a copy of the source node with new IDs and position
+      const copiedNode: IntermediateNode = {
+        id: newId,
+        type: "node",
+        x: newX,
+        y: newY,
+        width: sourceNodeData.width,
+        height: sourceNodeData.height,
+        title: `${sourceNodeData.title} (Copy)`,
+        description: sourceNodeData.description,
+        entryEffects: JSON.parse(JSON.stringify(sourceNodeData.entryEffects)), // Deep copy
+        exitEffects: JSON.parse(JSON.stringify(sourceNodeData.exitEffects)), // Deep copy
+        timeOut: sourceNodeData.timeOut
+          ? JSON.parse(JSON.stringify(sourceNodeData.timeOut))
+          : null, // Deep copy
+        events: JSON.parse(JSON.stringify(sourceNodeData.events)), // Deep copy
+        success: successId, // String ID instead of object
+        failure: failureId, // String ID instead of object
+      };
+
+      // Create the end nodes separately
+      const successEndNode: IEndNode = {
+        id: successId,
+        type: "end",
+        x: newX + 250,
+        y: newY - 50,
+        width: 120,
+        height: 60,
+        outcome: "success",
+      };
+
+      const failureEndNode: IEndNode = {
+        id: failureId,
+        type: "end",
+        x: newX + 250,
+        y: newY + 100,
+        width: 120,
+        height: 60,
+        outcome: "failure",
+      };
+
+      // Add new nodes to flow
+      const newFlowNodes = [
+        nodeToReactFlow(
+          copiedNode,
+          () => handleAddNode(copiedNode.id),
+          () => handleDeleteNode(copiedNode.id)
+        ),
+        nodeToReactFlow(successEndNode, undefined, () =>
+          handleDeleteNode(successId)
+        ),
+        nodeToReactFlow(failureEndNode, undefined, () =>
+          handleDeleteNode(failureId)
+        ),
+      ];
+
+      setFlowNodes((nds) => [...nds, ...newFlowNodes]);
+
+      // Add edges ONLY from copied node to its success/failure (no incoming edge)
+      const newEdges: Edge[] = [
+        // Edge from copied node to success
+        {
+          id: `e-${newId}-success-${successId}`,
+          source: newId,
+          target: successId,
+          sourceHandle: "success",
+          label: "Success",
+          style: { stroke: "#22c55e", strokeWidth: 3 },
+          animated: true,
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#22c55e",
+          },
+        },
+        // Edge from copied node to failure
+        {
+          id: `e-${newId}-failure-${failureId}`,
+          source: newId,
+          target: failureId,
+          sourceHandle: "failure",
+          label: "Failure",
+          style: { stroke: "#ef4444", strokeWidth: 3 },
+          animated: false,
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#ef4444",
+          },
+        },
+      ];
+
+      setFlowEdges((eds) => [...eds, ...newEdges]);
+      setHasUnsavedChanges(true);
+    },
+    [
+      flowNodes,
+      nodeToReactFlow,
+      handleDeleteNode,
+      handleAddNode,
+      setFlowNodes,
+      setFlowEdges,
+      setHasUnsavedChanges,
+    ]
+  );
+
+  const handleConvertEndToIntermediate = useCallback(
+    (endNodeId: string) => {
+      const endNode = flowNodes.find((n) => n.id === endNodeId);
+      if (!endNode || endNode.data.type !== "end") return;
+
+      const newId = endNodeId; // Keep the same ID
+      const successId = `${newId}-success`;
+      const failureId = `${newId}-failure`;
+
+      // Find the highest node number among existing intermediate nodes
+      const intermediateNodes = flowNodes
+        .filter((n) => n.data.type === "node")
+        .map((n) => n.data.nodeData as IntermediateNode);
+
+      const nodeNumbers = intermediateNodes
+        .map((node) => {
+          const match = node.title.match(/^Node (\d+)$/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter((num) => num > 0);
+
+      const nextNodeNumber =
+        nodeNumbers.length > 0 ? Math.max(...nodeNumbers) + 1 : 1;
+
+      // Create IntermediateNode from EndNode
+      const intermediateNode: IntermediateNode = {
+        id: newId,
+        type: "node",
+        x: endNode.position.x,
+        y: endNode.position.y,
+        width: 180,
+        height: 80,
+        title: `Node ${nextNodeNumber}`,
+        description: "",
+        entryEffects: [],
+        exitEffects: [],
+        timeOut: null,
+        events: [],
+        success: successId, // String ID instead of object
+        failure: failureId, // String ID instead of object
+      };
+
+      // Create the end nodes separately
+      const successEndNode: IEndNode = {
+        id: successId,
+        type: "end",
+        x: endNode.position.x + 250,
+        y: endNode.position.y - 50,
+        width: 120,
+        height: 60,
+        outcome: "success",
+      };
+
+      const failureEndNode: IEndNode = {
+        id: failureId,
+        type: "end",
+        x: endNode.position.x + 250,
+        y: endNode.position.y + 100,
+        width: 120,
+        height: 60,
+        outcome: "failure",
+      };
+
+      // Update the existing node to IntermediateNode
+      const updatedNode = nodeToReactFlow(
+        intermediateNode,
+        undefined, // No add node for intermediate nodes
+        () => handleDeleteNode(intermediateNode.id)
+      );
+
+      // Create success and failure nodes
+      const successNode = nodeToReactFlow(
+        successEndNode,
+        undefined,
+        () => handleDeleteNode(successId)
+      );
+
+      const failureNode = nodeToReactFlow(
+        failureEndNode,
+        undefined,
+        () => handleDeleteNode(failureId)
+      );
+
+      // Update flow nodes
+      setFlowNodes((nds) => [
+        ...nds.filter((n) => n.id !== endNodeId), // Remove old end node
+        updatedNode,
+        successNode,
+        failureNode,
+      ]);
+
+      // Add edges to success/failure
+      const newEdges: Edge[] = [
+        {
+          id: `e-${newId}-success-${successId}`,
+          source: newId,
+          target: successId,
+          sourceHandle: "success",
+          label: "Success",
+          style: { stroke: "#22c55e", strokeWidth: 3 },
+          animated: true,
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#22c55e",
+          },
+        },
+        {
+          id: `e-${newId}-failure-${failureId}`,
+          source: newId,
+          target: failureId,
+          sourceHandle: "failure",
+          label: "Failure",
+          style: { stroke: "#ef4444", strokeWidth: 3 },
+          animated: false,
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#ef4444",
+          },
+        },
+      ];
+
+      setFlowEdges((eds) => [...eds, ...newEdges]);
+      setHasUnsavedChanges(true);
+    },
+    [
+      flowNodes,
+      nodeToReactFlow,
+      handleDeleteNode,
+      setFlowNodes,
+      setFlowEdges,
+      setHasUnsavedChanges,
+    ]
+  );
+
+  const handleConvertEndToRestart = useCallback(
+    (endNodeId: string) => {
+      // Find the parent node that has this end node as failure
+      const parentEdge = flowEdges.find(
+        (edge) => edge.target === endNodeId && edge.sourceHandle === "failure"
+      );
+
+      if (!parentEdge) return;
+
+      const parentNode = flowNodes.find((n) => n.id === parentEdge.source);
+      if (!parentNode || parentNode.data.type !== "node") return;
+
+      const parentNodeData = parentNode.data.nodeData as IntermediateNode;
+
+      // Update parent node's failure to be its own ID (self-reference for RESTART)
+      const updatedParentNodeData: IntermediateNode = {
+        ...parentNodeData,
+        failure: parentNode.id, // Self-reference for RESTART
+      };
+
+      // Update parent node in flow
+      setFlowNodes(
+        (nds) =>
+          nds
+            .map((node) =>
+              node.id === parentNode.id
+                ? {
+                    ...node,
+                    data: {
+                      ...node.data,
+                      nodeData: updatedParentNodeData,
+                    },
+                  }
+                : node.id === endNodeId
+                ? null // Remove the end node
+                : node
+            )
+            .filter(Boolean) as Node[]
+      );
+
+      // Remove the edge from parent to this end node
+      setFlowEdges((eds) => eds.filter((e) => e.target !== endNodeId));
+
+      setHasUnsavedChanges(true);
+    },
+    [flowNodes, flowEdges, setFlowNodes, setFlowEdges, setHasUnsavedChanges]
+  );
+
+  // Initialize nodes and edges from challenge (only once)
+  useEffect(() => {
+    if (!challenge) {
+      setFlowNodes([]);
+      setFlowEdges([]);
+      return;
+    }
+
+    // Simple function to convert node without callbacks (to avoid circular dependencies)
+    const simpleNodeToReactFlow = (
+      node: IStartNode | IntermediateNode | IEndNode
+    ): Node => {
+      let label: string = node.type;
+      if ("title" in node && typeof node.title === "string") label = node.title;
+      return {
+        id: node.id,
+        type: "custom",
+        position: { x: node.x, y: node.y },
+        data: {
+          label,
+          type: node.type,
+          id: node.id,
+          position: { x: node.x, y: node.y },
+          nodeData: node, // Add nodeData here too
+          onAddNode: undefined, // Will be set later
+          onDeleteNode: undefined, // Will be set later
+        } as CustomNodeData,
+        style: {
+          borderRadius: 8,
+          boxShadow: "0 2px 8px #0001",
+        },
+      };
+    };
+
+    // Build initial nodes from challenge
+    const rfNodes: Node[] = [
+      ...(challenge.startNode
+        ? [simpleNodeToReactFlow(challenge.startNode)]
+        : []),
+      ...Object.values(challenge.nodes || {}).map(simpleNodeToReactFlow),
+      ...(challenge.endNodes ?? []).map(simpleNodeToReactFlow),
+    ];
+
+    // Build initial edges from challenge
+    setFlowNodes(rfNodes);
+    setFlowEdges(challengeEdges);
+    setHasUnsavedChanges(false); // Reset unsaved changes when loading new challenge
+  }, [
+    challenge?.id,
+    challenge,
+    challengeEdges,
+    setFlowNodes,
+    setFlowEdges,
+    setHasUnsavedChanges,
+  ]);
+  const onConnect = useCallback(
+    (params: Connection) => {
+      // Prevent connections to start node
+      if (
+        params.target &&
+        flowNodes.find((n) => n.id === params.target)?.data.type === "start"
+      ) {
+        return;
+      }
+
+      // Prevent connections from end nodes
+      if (
+        params.source &&
+        flowNodes.find((n) => n.id === params.source)?.data.type === "end"
+      ) {
+        return;
+      }
+
+      // Special handling for Start node - only ONE outgoing connection allowed
+      if (params.source) {
+        const sourceNode = flowNodes.find((n) => n.id === params.source);
+        if (sourceNode?.data.type === "start") {
+          // Find ALL existing edges from start node
+          const existingStartEdges = flowEdges.filter(
+            (edge) => edge.source === params.source
+          );
+
+          // Remove ALL existing edges from start node
+          if (existingStartEdges.length > 0) {
+            setFlowEdges((eds) =>
+              eds.filter((e) => e.source !== params.source)
+            );
+          }
+        }
+      }
+
+      // Check if source handle already has a connection (only one edge per success/failure)
+      if (params.source && params.sourceHandle) {
+        const existingEdge = flowEdges.find(
+          (edge) =>
+            edge.source === params.source &&
+            edge.sourceHandle === params.sourceHandle
+        );
+
+        if (existingEdge) {
+          // Remove existing edge first
+          setFlowEdges((eds) => eds.filter((e) => e.id !== existingEdge.id));
+        }
+      }
+
+      // If connecting failure handle, remove RESTART from source node's nodeData
+      if (params.source && params.sourceHandle === "failure") {
+        const sourceNode = flowNodes.find((n) => n.id === params.source);
+        if (sourceNode && sourceNode.data.type === "node") {
+          const nodeData = sourceNode.data.nodeData as IntermediateNode;
+
+          // Check if current failure is RESTART (self-reference) and remove it
+          if (nodeData.failure === params.source) {
+            const updatedNodeData: IntermediateNode = {
+              ...nodeData,
+              failure: params.target || "", // String ID instead of object
+            };
+
+            // Update the source node's nodeData
+            setFlowNodes((nds) =>
+              nds.map((node) =>
+                node.id === params.source
+                  ? {
+                      ...node,
+                      data: {
+                        ...node.data,
+                        nodeData: updatedNodeData,
+                      },
+                    }
+                  : node
+              )
+            );
+          }
+        }
+      }
+
+      // Create new edge
+      const newEdge: Edge = {
+        id: `e-${params.source}-${params.sourceHandle || "default"}-${
+          params.target
+        }`,
+        ...params,
+        style: {
+          stroke:
+            params.sourceHandle === "success"
+              ? "#22c55e"
+              : params.sourceHandle === "failure"
+              ? "#ef4444"
+              : "#3b82f6",
+          strokeWidth: 2,
+        },
+        markerEnd: {
+          type: "arrowclosed",
+          color:
+            params.sourceHandle === "success"
+              ? "#22c55e"
+              : params.sourceHandle === "failure"
+              ? "#ef4444"
+              : "#3b82f6",
+        },
+      };
+
+      setFlowEdges((eds) => addEdge(newEdge, eds));
+      setHasUnsavedChanges(true);
+    },
+    [flowEdges, flowNodes, setFlowEdges, setFlowNodes, setHasUnsavedChanges]
+  );
+
+  const nodeTypes = {
+    custom: ({ id, data }: { id: string; data: CustomNodeData }) => {
+      const isSelected = selectedNodeId === id;
+
+      // Check if success/failure nodes exist for intermediate nodes
+      const hasSuccessNode =
+        data.type === "node"
+          ? flowNodes.some((n) => n.id === `${id}-success`)
+          : false;
+
+      // Check if failure leads to an end node with outcome: "failure"
+      const hasFailureEndNode =
+        data.type === "node"
+          ? (() => {
+              const nodeData = data.nodeData as IntermediateNode;
+              const failureId = nodeData.failure;
+              if (!failureId || failureId === nodeData.id) return false; // Empty or RESTART
+
+              const failureNode = flowNodes.find((n) => n.id === failureId);
+              return (
+                failureNode?.data.type === "end" &&
+                (failureNode.data.nodeData as IEndNode).outcome === "failure"
+              );
+            })()
+          : false;
+
+      return (
+        <NodeCard
+          label={data.label}
+          type={data.type}
+          nodeData={data.nodeData}
+          isSelected={isSelected}
+          onNodeClick={() => handleNodeClick(id, data.type)}
+          onAddNode={
+            data.type === "start" && !isSaving
+              ? () => handleAddNode(id)
+              : undefined
+          }
+          onDeleteNode={
+            data.type !== "start" && !isSaving
+              ? () => handleDeleteNode(id)
+              : undefined
+          }
+          onCopyNode={
+            data.type === "node" && !isSaving
+              ? () => handleCopyNode(id)
+              : undefined
+          }
+          onAddSuccessNode={
+            data.type === "node" && !hasSuccessNode && !isSaving
+              ? () => handleAddSuccessNode(id)
+              : undefined
+          }
+          onAddFailureNode={
+            data.type === "node" && !isSaving
+              ? () => handleAddFailureNode(id)
+              : undefined
+          }
+          hasSuccessNode={hasSuccessNode}
+          hasFailureEndNode={hasFailureEndNode}
+        />
+      );
+    },
+  };
+
+  return (
+    <S.Container>
+      {/* Action Buttons */}
+      <S.ActionButtonsContainer>
+        {hasUnsavedChanges && (
+          <S.SaveButton
+            onClick={handleSaveChanges}
+            disabled={isSaving}
+            $isSaving={isSaving}
+          >
+            {isSaving ? "Saving..." : "Save Changes"}
+          </S.SaveButton>
+        )}
+
+        <S.ValidateButton
+          onClick={handleValidate}
+          disabled={isSaving || !challenge}
+          $hasErrors={validationResult ? !validationResult.isValid : false}
+        >
+          {validationResult?.isValid === false
+            ? "⚠ Issues Found"
+            : "✓ Validate"}
+        </S.ValidateButton>
+      </S.ActionButtonsContainer>
+
+      <ReactFlow
+        key={`reactflow-${flowNodes.length}-${flowEdges.length}`}
+        nodes={flowNodes}
+        edges={flowEdges}
+        onNodesChange={isSaving ? () => {} : handleCustomNodesChange}
+        onEdgesChange={isSaving ? () => {} : handleCustomEdgesChange}
+        onConnect={isSaving ? () => {} : onConnect}
+        nodeTypes={nodeTypes}
+        nodesDraggable={!isSaving}
+        nodesConnectable={!isSaving}
+        elementsSelectable={!isSaving}
+        defaultEdgeOptions={{
+          style: { strokeWidth: 3, stroke: "#3b82f6" },
+          animated: true,
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#3b82f6",
+          },
+        }}
+        fitView
+      >
+        <Background color="#e0e7ef" gap={16} />
+        <Controls />
+        <MiniMap />
+      </ReactFlow>
+
+      {/* Loading Overlay */}
+      <LoadingOverlay
+        isVisible={isSaving}
+        message="Saving changes..."
+        subMessage="Please wait"
+      />
+
+      {selectedNodeForEditing &&
+        !isSaving &&
+        selectedNodeForEditing.type === "node" && (
+          <NodeEditor
+            selectedNode={selectedNodeForEditing as IntermediateNode}
+            onSave={handleNodeUpdate}
+            onClose={() => setSelectedNodeId(null)}
+          />
+        )}
+
+      {selectedNodeForEditing &&
+        !isSaving &&
+        selectedNodeForEditing.type === "end" && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              right: 0,
+              width: "min(500px, 100vw)",
+              height: "100vh",
+              background: "linear-gradient(145deg, #ffffff, #f8f9fa)",
+              borderLeft: "1px solid #dee2e6",
+              padding: "24px",
+              boxShadow: "-4px 0 20px rgba(0, 0, 0, 0.1)",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <h3 style={{ margin: 0, color: "#333", fontSize: "18px" }}>
+                Edit End Node
+              </h3>
+              <button
+                onClick={() => setSelectedNodeId(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  color: "#666",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ marginBottom: "20px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontWeight: 500,
+                }}
+              >
+                Node Type:
+              </label>
+              <select
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "2px solid #e1e5e9",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                }}
+                value="end"
+                onChange={(e) => {
+                  if (e.target.value === "node") {
+                    handleConvertEndToIntermediate(selectedNodeForEditing.id);
+                    setSelectedNodeId(null);
+                  } else if (e.target.value === "restart") {
+                    handleConvertEndToRestart(selectedNodeForEditing.id);
+                    setSelectedNodeId(null);
+                  }
+                }}
+              >
+                <option value="end">End Node</option>
+                <option value="node">Intermediate Node</option>
+                {/* Show Restart option only for failure end nodes */}
+                {(() => {
+                  const failureEdge = flowEdges.find(
+                    (edge) =>
+                      edge.target === selectedNodeForEditing.id &&
+                      edge.sourceHandle === "failure"
+                  );
+                  return failureEdge ? (
+                    <option value="restart">Restart</option>
+                  ) : null;
+                })()}
+              </select>
+            </div>
+
+            <div style={{ fontSize: "14px", color: "#666" }}>
+              {(() => {
+                const failureEdge = flowEdges.find(
+                  (edge) =>
+                    edge.target === selectedNodeForEditing.id &&
+                    edge.sourceHandle === "failure"
+                );
+                const successEdge = flowEdges.find(
+                  (edge) =>
+                    edge.target === selectedNodeForEditing.id &&
+                    edge.sourceHandle === "success"
+                );
+
+                if (failureEdge && successEdge) {
+                  return 'Select "Intermediate Node" to convert into an intermediate node with success/failure paths, or "Restart" to restart the current node on failure.';
+                } else if (failureEdge) {
+                  return 'Select "Intermediate Node" to convert into an intermediate node with success/failure paths, or "Restart" to restart the current node on failure.';
+                } else if (successEdge) {
+                  return 'Select "Intermediate Node" to convert this success end node into an intermediate node with success/failure paths.';
+                } else {
+                  return 'Select "Intermediate Node" to convert this end node into an intermediate node with success/failure paths.';
+                }
+              })()}
+            </div>
+          </div>
+        )}
+
+      {/* Validation Panel */}
+      {showValidation && validationResult && (
+        <ValidationPanel
+          validationResult={validationResult}
+          onErrorClick={handleValidationErrorClick}
+          onClose={() => setShowValidation(false)}
+        />
+      )}
+    </S.Container>
+  );
+};

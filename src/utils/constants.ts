@@ -16,4 +16,4 @@ export const RoutePathNames = {
   EditAdventure: "/edit-adventure/:id",
   ResetPassword: "/reset-password",
   Challenge: "/challenge/:id/:challengeId?",
-};
+} as const;

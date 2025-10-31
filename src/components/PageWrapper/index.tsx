@@ -1,27 +1,31 @@
 import type { FC, PropsWithChildren } from "react";
-import { GoBack, SideBar } from "..";
-import { GoBackWrapper, Wrapper } from "./styles";
+import { GoBack } from "../GoBack";
+import { SideBar } from "../SideBar";
+import * as S from "./styles";
+import type { RoutePathNameType } from "../../utils/types";
 
 interface IProps extends PropsWithChildren {
   withSideBar?: boolean;
   withBackButton?: boolean;
   goBackText?: string;
+  backRoute?: RoutePathNameType;
 }
 
 export const PageWrapper: FC<IProps> = ({
   children,
   goBackText,
+  backRoute,
   withSideBar = true,
   withBackButton = false,
 }) => (
-  <Wrapper withSideBar={withSideBar} withBackButton={withBackButton}>
+  <S.Wrapper $withSideBar={withSideBar} $withBackButton={withBackButton}>
     {withSideBar ? (
       <SideBar />
     ) : withBackButton ? (
-      <GoBackWrapper>
-        <GoBack text={goBackText} />
-      </GoBackWrapper>
+      <S.GoBackWrapper>
+        <GoBack text={goBackText} route={backRoute} />
+      </S.GoBackWrapper>
     ) : null}
     {children}
-  </Wrapper>
+  </S.Wrapper>
 );

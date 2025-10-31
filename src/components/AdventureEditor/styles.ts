@@ -17,15 +17,15 @@ export const EditorTabs = styled.div`
   margin-bottom: 16px;
 `;
 
-export const Tab = styled.div<{ active?: boolean }>`
+export const Tab = styled.div<{ $active?: boolean }>`
   padding: 8px 16px;
   font-size: 14px;
   border: none;
   font-weight: 600;
   border-bottom: 2px solid
-    ${(props) => (props.active ? "#007bff" : "transparent")};
+    ${(props) => (props.$active ? "#007bff" : "transparent")};
   background-color: transparent;
-  color: ${(props) => (props.active ? "#007bff" : "#555")};
+  color: ${(props) => (props.$active ? "#007bff" : "#555")};
   cursor: pointer;
   width: 33%;
   text-align: center;

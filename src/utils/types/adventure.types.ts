@@ -1,4 +1,5 @@
 // The Adventure groups all related challenges and defines global settings that apply across them.
+import type { TagType } from ".";
 import type { ChallengeType } from "./challenge.types";
 
 export type ButtonType =
@@ -65,6 +66,7 @@ export type AdventureType = {
   title: string;
   description: string;
   version: string;
+  tag: TagType | undefined;
   created_at: string;
   updated_at: string;
   input_aliasing: InputAliasingType;

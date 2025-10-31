@@ -1,14 +1,12 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 
-import { RoutePathNames } from "./utils/constants";
-import { useUserStore } from "./stores/authStore";
 import { routers } from "./utils/routes";
 import { useAuth } from "./utils/hooks";
+import { ToastProvider } from "./components/ToastProvider";
 import "./index.css";
 
 function App() {
   useAuth();
-  const { user } = useUserStore();
 
   return (
     <div className="page-wrapper">
@@ -17,7 +15,7 @@ function App() {
           <Route key={path} path={path} element={element} />
         ))}
 
-        <Route
+        {/* <Route
           path="*"
           element={
             <Navigate
@@ -25,8 +23,9 @@ function App() {
               to={user?.id ? RoutePathNames.Home : RoutePathNames.SignIn}
             />
           }
-        />
+        /> */}
       </Routes>
+      <ToastProvider />
     </div>
   );
 }

@@ -39,6 +39,29 @@ export const Input = styled.input`
   }
 `;
 
+export const Select = styled.select`
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: white;
+  color: #1f2937;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  }
+
+  option {
+    color: #1f2937;
+    background-color: white;
+  }
+`;
+
 export const TextArea = styled.textarea`
   padding: 8px 12px;
   border: 1px solid #d1d5db;
